@@ -1,26 +1,104 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  color-scheme: dark;
+
+  /* Surface hierarchy */
+  --background: #080b10;
+  --surface: #0d1117;
+  --surface-raised: #131922;
+  --surface-overlay: #19212c;
+
+  /* Content and borders */
+  --foreground: #e7edf5;
+  --foreground-muted: #8c99aa;
+  --foreground-subtle: #626f80;
+  --border: #202938;
+  --border-strong: #303b4d;
+
+  /* Semantic states */
+  --healthy: #34d399;
+  --healthy-muted: #0d382d;
+  --warning: #fbbf24;
+  --warning-muted: #3b2b0b;
+  --critical: #fb7185;
+  --critical-muted: #441923;
+  --informational: #38bdf8;
+  --informational-muted: #0b3348;
+
+  /* Interaction and layout conventions */
+  --focus: #67e8f9;
+  --panel-radius: 0.625rem;
+  --panel-padding: 1rem;
+  --layout-gutter: 1rem;
 }
 
 @theme inline {
   --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-surface-raised: var(--surface-raised);
+  --color-surface-overlay: var(--surface-overlay);
   --color-foreground: var(--foreground);
+  --color-foreground-muted: var(--foreground-muted);
+  --color-foreground-subtle: var(--foreground-subtle);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-healthy: var(--healthy);
+  --color-healthy-muted: var(--healthy-muted);
+  --color-warning: var(--warning);
+  --color-warning-muted: var(--warning-muted);
+  --color-critical: var(--critical);
+  --color-critical-muted: var(--critical-muted);
+  --color-informational: var(--informational);
+  --color-informational-muted: var(--informational-muted);
+  --color-focus: var(--focus);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
+@media (min-width: 40rem) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --panel-padding: 1.25rem;
+    --layout-gutter: 1.5rem;
   }
 }
 
+html[data-density="compact"] {
+  --panel-padding: 0.75rem;
+  --layout-gutter: 0.875rem;
+}
+
+* {
+  border-color: var(--border);
+}
+
+html {
+  background: var(--background);
+}
+
 body {
+  min-width: 20rem;
+  overflow-x: hidden;
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-geist-sans), sans-serif;
+  font-feature-settings: "tnum" 1, "cv02" 1, "cv03" 1, "cv04" 1;
+  text-rendering: optimizeLegibility;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+::selection {
+  background: var(--informational-muted);
+  color: var(--foreground);
 }

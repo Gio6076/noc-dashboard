@@ -1,0 +1,68 @@
+import type { NetworkAlert } from "@/types/network";
+import { DEVICE_IDS } from "@/data/mock-devices";
+
+export const mockNetworkAlerts = [
+  {
+    id: "alert-bkp-offline",
+    title: "Backup server unreachable",
+    message: "BKP-SRV-01 has not responded to ICMP or agent checks for 17 minutes.",
+    severity: "critical",
+    occurredAt: "2026-08-28T07:43:00.000Z",
+    deviceId: DEVICE_IDS.backupServer,
+    acknowledged: false,
+  },
+  {
+    id: "alert-access-bandwidth",
+    title: "Uplink utilization above threshold",
+    message: "ACCESS-SW-02 uplink Gi1/0/48 has remained above 80% utilization for 12 minutes.",
+    severity: "warning",
+    occurredAt: "2026-08-28T07:48:00.000Z",
+    deviceId: DEVICE_IDS.accessSwitch02,
+    acknowledged: false,
+  },
+  {
+    id: "alert-ap-latency",
+    title: "Elevated wireless latency",
+    message: "AP-02 client latency is averaging 84 ms with intermittent retransmissions.",
+    severity: "warning",
+    occurredAt: "2026-08-28T07:51:00.000Z",
+    deviceId: DEVICE_IDS.accessPoint02,
+    acknowledged: false,
+  },
+  {
+    id: "alert-ap-packet-loss",
+    title: "Packet loss detected",
+    message: "AP-02 packet loss reached 4.8% during the latest five-minute sample.",
+    severity: "warning",
+    occurredAt: "2026-08-28T07:54:00.000Z",
+    deviceId: DEVICE_IDS.accessPoint02,
+    acknowledged: false,
+  },
+  {
+    id: "alert-db-cpu",
+    title: "Database CPU pressure",
+    message: "DB-SRV-01 CPU utilization exceeded 85% for five consecutive samples.",
+    severity: "warning",
+    occurredAt: "2026-08-28T07:31:00.000Z",
+    deviceId: DEVICE_IDS.databaseServer,
+    acknowledged: true,
+  },
+  {
+    id: "alert-interface-flap",
+    title: "Interface instability",
+    message: "DIST-SW-01 interface Gi1/0/24 changed state four times within ten minutes.",
+    severity: "informational",
+    occurredAt: "2026-08-28T07:22:00.000Z",
+    deviceId: DEVICE_IDS.distributionSwitch,
+    acknowledged: true,
+  },
+  {
+    id: "alert-auth-failures",
+    title: "Repeated administrator sign-in failures",
+    message: "EDGE-FW-01 rejected five management login attempts from 10.10.50.117.",
+    severity: "warning",
+    occurredAt: "2026-08-28T07:57:00.000Z",
+    deviceId: DEVICE_IDS.edgeFirewall,
+    acknowledged: false,
+  },
+] satisfies readonly NetworkAlert[];
