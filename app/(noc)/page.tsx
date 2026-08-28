@@ -7,6 +7,7 @@ import {
   Server,
 } from "lucide-react";
 import { DeviceStatusOverview } from "@/components/dashboard/device-status-overview";
+import { RealAgentOverview } from "@/components/agent/real-agent-overview";
 import { LatencyChart } from "@/components/dashboard/latency-chart";
 import { NetworkHealth } from "@/components/dashboard/network-health";
 import { OperationalDetails } from "@/components/dashboard/operational-details";
@@ -26,6 +27,7 @@ import {
 } from "@/data";
 import { NETWORK_THRESHOLDS, SYSTEM_NAME } from "@/lib/constants";
 import { calculateDashboardMetrics } from "@/lib/dashboard";
+import { getAgentTelemetry } from "@/lib/agent-api";
 import {
   formatLatency,
   formatPercentage,
@@ -38,7 +40,8 @@ const severityPriority = {
   informational: 1,
 } as const;
 
-export default function OverviewPage() {
+export default async function OverviewPage() {
+  const agentTelemetry = await getAgentTelemetry();
   const metrics = calculateDashboardMetrics(
     mockNetworkDevices,
     mockNetworkAlerts,
@@ -163,6 +166,8 @@ export default function OverviewPage() {
           />
         </div>
       </section>
+
+      <RealAgentOverview telemetry={agentTelemetry} />
 
       <div className="grid items-start gap-4 xl:grid-cols-12">
         <div className="xl:col-span-6">

@@ -24,6 +24,24 @@ export function formatBandwidth(megabitsPerSecond: number): string {
   return `${compactNumberFormatter.format(megabitsPerSecond)} Mbps`;
 }
 
+export function formatBytes(bytes: number): string {
+  if (!Number.isFinite(bytes) || bytes <= 0) return "0 B";
+
+  const units = ["B", "KB", "MB", "GB", "TB", "PB"] as const;
+  const unitIndex = Math.min(
+    Math.floor(Math.log(bytes) / Math.log(1024)),
+    units.length - 1,
+  );
+  const value = bytes / 1024 ** unitIndex;
+  const fractionDigits = value >= 10 || unitIndex === 0 ? 0 : 1;
+
+  return `${value.toFixed(fractionDigits)} ${units[unitIndex]}`;
+}
+
+export function formatThroughput(bytesPerSecond: number): string {
+  return `${formatBytes(bytesPerSecond)}/s`;
+}
+
 export function formatPercentage(value: number, fractionDigits = 0): string {
   return `${value.toFixed(fractionDigits)}%`;
 }
