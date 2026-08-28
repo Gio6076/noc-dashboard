@@ -96,7 +96,7 @@ export default function OverviewPage() {
     <div className="space-y-5 xl:space-y-6">
       <SectionHeader
         title="Operational overview"
-        description="Live infrastructure posture, performance telemetry, and conditions requiring operator attention."
+        description="Simulated infrastructure posture, performance telemetry, and conditions requiring operator attention."
         action={
           <div className="flex items-center gap-2">
             <span className="font-mono text-[10px] uppercase tracking-wide text-foreground-subtle">
