@@ -5,14 +5,17 @@ import type {
   AgentHealth,
   AgentNetworkTelemetry,
   AgentSystemTelemetry,
-  AgentTelemetry,
 } from "@/types/agent";
+import { getEnabledMonitoredDevices } from "@/data/monitored-devices";
+import type {
+  AgentDeviceSnapshot,
+  AgentEndpointName,
+  MonitoredDevice,
+} from "@/types/monitored-device";
 
 const REQUEST_TIMEOUT_MS = 3_000;
 
 type JsonObject = Record<string, unknown>;
-type EndpointName = "health" | "system" | "network";
-
 function isObject(value: unknown): value is JsonObject {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -119,11 +122,6 @@ function normalizeNetwork(value: unknown): AgentNetworkTelemetry {
   };
 }
 
-function getAgentBaseUrl(): string | undefined {
-  const value = process.env.NOC_AGENT_API_URL?.trim();
-  return value ? value.replace(/\/$/, "") : undefined;
-}
-
 async function fetchEndpoint<T>(
   baseUrl: string,
   path: string,
@@ -142,23 +140,47 @@ async function fetchEndpoint<T>(
   }
 }
 
-export async function getAgentTelemetry(): Promise<AgentTelemetry> {
-  await connection();
-  const baseUrl = getAgentBaseUrl();
-  if (!baseUrl) {
-    return { unavailableEndpoints: ["health", "system", "network"] };
-  }
-
+export async function fetchAgentSnapshot(
+  device: MonitoredDevice,
+): Promise<AgentDeviceSnapshot> {
   const [health, system, network] = await Promise.all([
-    fetchEndpoint(baseUrl, "/health", normalizeHealth),
-    fetchEndpoint(baseUrl, "/api/system", normalizeSystem),
-    fetchEndpoint(baseUrl, "/api/network", normalizeNetwork),
+    fetchEndpoint(device.agentUrl, "/health", normalizeHealth),
+    fetchEndpoint(device.agentUrl, "/api/system", normalizeSystem),
+    fetchEndpoint(device.agentUrl, "/api/network", normalizeNetwork),
   ]);
-  const unavailableEndpoints: EndpointName[] = [];
+  const endpointAvailability = {
+    health: health !== undefined,
+    system: system !== undefined,
+    network: network !== undefined,
+  } satisfies Record<AgentEndpointName, boolean>;
+  const unavailableEndpoints = (
+    Object.entries(endpointAvailability) as [AgentEndpointName, boolean][]
+  )
+    .filter(([, available]) => !available)
+    .map(([endpoint]) => endpoint);
+  const availableEndpointCount = 3 - unavailableEndpoints.length;
 
-  if (!health) unavailableEndpoints.push("health");
-  if (!system) unavailableEndpoints.push("system");
-  if (!network) unavailableEndpoints.push("network");
+  return {
+    device,
+    availability:
+      availableEndpointCount === 0
+        ? "unreachable"
+        : availableEndpointCount === 3
+          ? "online"
+          : "partial",
+    health,
+    system,
+    network,
+    endpointAvailability,
+    unavailableEndpoints,
+    fetchedAt: new Date().toISOString(),
+  };
+}
 
-  return { health, system, network, unavailableEndpoints };
+export async function getMonitoredDeviceSnapshots(): Promise<
+  readonly AgentDeviceSnapshot[]
+> {
+  await connection();
+
+  return Promise.all(getEnabledMonitoredDevices().map(fetchAgentSnapshot));
 }

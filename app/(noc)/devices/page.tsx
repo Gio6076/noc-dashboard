@@ -8,18 +8,21 @@ import {
   Server,
 } from "lucide-react";
 import { DeviceInventory } from "@/components/devices/device-inventory";
+import { RealMonitoredDevices } from "@/components/agent/real-monitored-devices";
 import { MetricCard } from "@/components/ui/metric-card";
 import { SectionHeader } from "@/components/ui/section-header";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { mockNetworkAlerts, mockNetworkDevices } from "@/data";
 import { NETWORK_THRESHOLDS } from "@/lib/constants";
 import { calculateDashboardMetrics } from "@/lib/dashboard";
+import { getMonitoredDeviceSnapshots } from "@/lib/agent-api";
 import { formatLatency, formatPercentage } from "@/lib/formatters";
 import { getUtilizationTone } from "@/lib/status";
 
 export const metadata: Metadata = { title: "Devices" };
 
-export default function DevicesPage() {
+export default async function DevicesPage() {
+  const monitoredDeviceSnapshots = await getMonitoredDeviceSnapshots();
   const metrics = calculateDashboardMetrics(
     mockNetworkDevices,
     mockNetworkAlerts,
@@ -34,24 +37,32 @@ export default function DevicesPage() {
   return (
     <div className="space-y-5 xl:space-y-6">
       <SectionHeader
-        title="Monitored infrastructure"
-        description="Search the network inventory, assess device health, and inspect current telemetry."
+        title="Monitored Devices"
+        description="Real agent-backed devices and a separately labeled deterministic demo inventory."
         action={
           <StatusBadge
             status={metrics.offlineDevices > 0 ? "critical" : "healthy"}
-            label={`${metrics.totalDevices} monitored`}
+            label={`${monitoredDeviceSnapshots.length} real registered`}
           />
         }
       />
 
-      <section aria-label="Device inventory summary">
+      <RealMonitoredDevices snapshots={monitoredDeviceSnapshots} />
+
+      <SectionHeader
+        title="Demo Device Inventory"
+        description="Simulated enterprise fleet. Counts and telemetry below exclude all real monitored devices."
+        action={<StatusBadge status="informational" label="Demo snapshot" compact />}
+      />
+
+      <section aria-label="Demo device inventory summary">
         <div className="grid grid-cols-1 gap-3 min-[30rem]:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
           <MetricCard
             label="Total devices"
             value={metrics.totalDevices}
             icon={Server}
             status="informational"
-            supportingText="Across all monitored segments"
+            supportingText="Simulated devices only"
           />
           <MetricCard
             label="Online"

@@ -24,10 +24,3 @@ export interface AgentNetworkTelemetry {
   primaryIpv4Address?: string;
   activeInterfaceCount?: number;
 }
-
-export interface AgentTelemetry {
-  health?: AgentHealth;
-  system?: AgentSystemTelemetry;
-  network?: AgentNetworkTelemetry;
-  unavailableEndpoints: readonly ("health" | "system" | "network")[];
-}
