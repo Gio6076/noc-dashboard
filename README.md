@@ -2,7 +2,7 @@
 
 A portfolio-quality Network Operations Center dashboard for monitoring a small enterprise or school network. It presents infrastructure health, device inventory, network telemetry, alerts, incidents, and reliability analytics in a responsive dark operations interface.
 
-This repository currently runs as a deterministic front-end demonstration. It does not connect to live devices, a monitoring backend, or a database.
+The dashboard combines its original deterministic demonstration pages with live FastAPI-agent monitoring. A PostgreSQL persistence foundation is available through an explicitly invoked development command; the live dashboard does not read from it yet.
 
 ## Capabilities
 
@@ -35,6 +35,7 @@ This repository currently runs as a deterministic front-end demonstration. It do
 - TypeScript with strict checking
 - Tailwind CSS 4
 - Recharts 3
+- PostgreSQL with Drizzle ORM
 - Lucide React icons
 
 ## Architecture
@@ -70,12 +71,14 @@ npx tsc --noEmit
 npm run build
 ```
 
+For database setup, migrations, schema details, alert recovery rules, and the manual persisted collection command, see [docs/postgresql-persistence.md](docs/postgresql-persistence.md).
+
 ## Demonstration limitations
 
 - All monitoring records are local, fixed mock data.
 - Alert acknowledgements and Settings changes are harmless client-side state and reset without persistence.
 - Refresh intervals, thresholds, and notification preferences do not configure real infrastructure.
-- No authentication, API, monitoring agent, database, notification service, or background polling is implemented.
+- Persistence collection is manual and unscheduled; historical UI, notification delivery, and authentication are not implemented.
 
 The interface labels the environment as demo monitoring to avoid representing simulated telemetry as live operations.
 

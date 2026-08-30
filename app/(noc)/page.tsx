@@ -7,7 +7,7 @@ import {
   Server,
 } from "lucide-react";
 import { DeviceStatusOverview } from "@/components/dashboard/device-status-overview";
-import { RealMonitoredDevices } from "@/components/agent/real-monitored-devices";
+import { LiveRealMonitoring } from "@/components/monitoring/live-real-monitoring";
 import { LatencyChart } from "@/components/dashboard/latency-chart";
 import { NetworkHealth } from "@/components/dashboard/network-health";
 import { OperationalDetails } from "@/components/dashboard/operational-details";
@@ -28,6 +28,8 @@ import {
 import { NETWORK_THRESHOLDS, SYSTEM_NAME } from "@/lib/constants";
 import { calculateDashboardMetrics } from "@/lib/dashboard";
 import { getMonitoredDeviceSnapshots } from "@/lib/agent-api";
+import { evaluateMonitoringAlerts } from "@/lib/monitoring-alerts";
+import { createLiveMonitoringResponse } from "@/lib/live-monitoring";
 import {
   formatLatency,
   formatPercentage,
@@ -42,6 +44,11 @@ const severityPriority = {
 
 export default async function OverviewPage() {
   const monitoredDeviceSnapshots = await getMonitoredDeviceSnapshots();
+  const realMonitoringAlerts = evaluateMonitoringAlerts(monitoredDeviceSnapshots);
+  const liveMonitoringData = createLiveMonitoringResponse(
+    monitoredDeviceSnapshots,
+    realMonitoringAlerts,
+  );
   const metrics = calculateDashboardMetrics(
     mockNetworkDevices,
     mockNetworkAlerts,
@@ -167,7 +174,12 @@ export default async function OverviewPage() {
         </div>
       </section>
 
-      <RealMonitoredDevices snapshots={monitoredDeviceSnapshots} />
+      <LiveRealMonitoring
+        initialData={liveMonitoringData}
+        showDevices
+        showAlerts
+        compactAlerts
+      />
 
       <div className="grid items-start gap-4 xl:grid-cols-12">
         <div className="xl:col-span-6">

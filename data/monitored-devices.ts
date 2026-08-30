@@ -1,5 +1,6 @@
 import "server-only";
 
+import { monitoredDeviceOperationalStates } from "@/data/monitored-device-operational-states";
 import type { MonitoredDevice } from "@/types/monitored-device";
 
 function agentUrl(environmentValue: string | undefined, fallback: string) {
@@ -15,7 +16,7 @@ export const monitoredDevices: readonly MonitoredDevice[] = [
       process.env.NOC_MAC_AGENT_API_URL,
       "http://127.0.0.1:8000",
     ),
-    enabled: true,
+    operationalState: monitoredDeviceOperationalStates["macbook-air"],
     environment: "local",
     description: "Primary local development workstation",
   },
@@ -27,12 +28,8 @@ export const monitoredDevices: readonly MonitoredDevice[] = [
       process.env.NOC_LINUX_AGENT_API_URL,
       "http://192.168.254.116:8000",
     ),
-    enabled: true,
+    operationalState: monitoredDeviceOperationalStates["linux-mint-acer"],
     environment: "local",
     description: "Linux workstation on the local network",
   },
 ] as const;
-
-export function getEnabledMonitoredDevices(): readonly MonitoredDevice[] {
-  return monitoredDevices.filter((device) => device.enabled);
-}

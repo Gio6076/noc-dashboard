@@ -4,9 +4,13 @@ import { connection } from "next/server";
 import type {
   AgentHealth,
   AgentNetworkTelemetry,
+  AgentServiceCheck,
+  AgentServiceStatus,
+  AgentServicesTelemetry,
   AgentSystemTelemetry,
 } from "@/types/agent";
-import { getEnabledMonitoredDevices } from "@/data/monitored-devices";
+import { monitoredDevices } from "@/data/monitored-devices";
+import { shouldFetchMonitoredDevice } from "@/lib/device-operational-state";
 import type {
   AgentDeviceSnapshot,
   AgentEndpointName,
@@ -57,6 +61,28 @@ function requiredNumber(
   return value;
 }
 
+function requiredString(value: JsonObject, key: string): string {
+  const result = value[key];
+  if (typeof result !== "string" || !result.trim()) {
+    throw new Error("Invalid agent response");
+  }
+  return result;
+}
+
+function requiredNonNegativeNumber(value: JsonObject, key: string): number {
+  const result = value[key];
+  if (typeof result !== "number" || !Number.isFinite(result) || result < 0) {
+    throw new Error("Invalid agent response");
+  }
+  return result;
+}
+
+function requiredNonNegativeInteger(value: JsonObject, key: string): number {
+  const result = requiredNonNegativeNumber(value, key);
+  if (!Number.isInteger(result)) throw new Error("Invalid agent response");
+  return result;
+}
+
 function normalizeHealth(value: unknown): AgentHealth {
   if (!isObject(value)) throw new Error("Invalid agent response");
 
@@ -69,6 +95,7 @@ function normalizeHealth(value: unknown): AgentHealth {
     hostname: firstString([value, identity], ["hostname", "host_name"]),
     platform: firstString([value, identity], ["platform", "system", "os"]),
     architecture: firstString([value, identity], ["architecture", "arch", "machine"]),
+    platformRelease: firstString([value, identity], ["platformRelease", "platform_release", "release", "os_release"]),
   };
 }
 
@@ -89,6 +116,10 @@ function normalizeSystem(value: unknown): AgentSystemTelemetry {
     diskUsagePercent: requiredNumber([value, disk], ["diskUsagePercent", "disk_usage_percent", "disk_percent", "usage_percent", "percent"]),
     uptimeSeconds: requiredNumber([value], ["uptimeSeconds", "uptime_seconds", "uptime"]),
     logicalCpuCount: requiredNumber([value, cpu], ["cpuLogicalCount", "logicalCpuCount", "logical_cpu_count", "cpu_count_logical", "logical_count", "count"]),
+    memoryUsedBytes: firstNumber([value, memory], ["memoryUsedBytes", "memory_used_bytes", "used_bytes"]),
+    memoryTotalBytes: firstNumber([value, memory], ["memoryTotalBytes", "memory_total_bytes", "total_bytes"]),
+    diskUsedBytes: firstNumber([value, disk], ["diskUsedBytes", "disk_used_bytes", "used_bytes"]),
+    diskTotalBytes: firstNumber([value, disk], ["diskTotalBytes", "disk_total_bytes", "total_bytes"]),
   };
 }
 
@@ -122,6 +153,77 @@ function normalizeNetwork(value: unknown): AgentNetworkTelemetry {
   };
 }
 
+function normalizeServiceCheck(value: unknown): AgentServiceCheck {
+  if (!isObject(value)) throw new Error("Invalid agent response");
+
+  const type = value.type;
+  const status = value.status;
+  if (
+    (type !== "tcp" && type !== "http" && type !== "https") ||
+    (status !== "up" && status !== "down")
+  ) {
+    throw new Error("Invalid agent response");
+  }
+  const normalizedStatus: AgentServiceStatus = status;
+
+  const common = {
+    name: requiredString(value, "name"),
+    status: normalizedStatus,
+    responseTimeMs: requiredNonNegativeNumber(value, "responseTimeMs"),
+    checkedAt: requiredString(value, "checkedAt"),
+  };
+
+  if (type === "tcp") {
+    const port = requiredNonNegativeInteger(value, "port");
+    if (port < 1 || port > 65_535) throw new Error("Invalid agent response");
+    return {
+      ...common,
+      type,
+      host: requiredString(value, "host"),
+      port,
+    };
+  }
+
+  const httpStatusCode = value.httpStatusCode;
+  if (
+    httpStatusCode !== null &&
+    (typeof httpStatusCode !== "number" || !Number.isInteger(httpStatusCode))
+  ) {
+    throw new Error("Invalid agent response");
+  }
+  return {
+    ...common,
+    type,
+    url: requiredString(value, "url"),
+    httpStatusCode,
+  };
+}
+
+function normalizeServices(value: unknown): AgentServicesTelemetry {
+  if (!isObject(value) || !Array.isArray(value.services)) {
+    throw new Error("Invalid agent response");
+  }
+
+  const services = value.services.map(normalizeServiceCheck);
+  const totalServices = requiredNonNegativeInteger(value, "totalServices");
+  const servicesUp = requiredNonNegativeInteger(value, "servicesUp");
+  const servicesDown = requiredNonNegativeInteger(value, "servicesDown");
+  if (
+    totalServices !== services.length ||
+    servicesUp + servicesDown !== totalServices
+  ) {
+    throw new Error("Invalid agent response");
+  }
+
+  return {
+    collectedAt: requiredString(value, "collectedAt"),
+    totalServices,
+    servicesUp,
+    servicesDown,
+    services,
+  };
+}
+
 async function fetchEndpoint<T>(
   baseUrl: string,
   path: string,
@@ -143,34 +245,52 @@ async function fetchEndpoint<T>(
 export async function fetchAgentSnapshot(
   device: MonitoredDevice,
 ): Promise<AgentDeviceSnapshot> {
-  const [health, system, network] = await Promise.all([
+  if (!shouldFetchMonitoredDevice(device)) {
+    return {
+      device,
+      availability: "not-fetched",
+      endpointAvailability: {
+        health: false,
+        system: false,
+        network: false,
+        services: false,
+      },
+      unavailableEndpoints: [],
+      fetchedAt: new Date().toISOString(),
+    };
+  }
+
+  const [health, system, network, services] = await Promise.all([
     fetchEndpoint(device.agentUrl, "/health", normalizeHealth),
     fetchEndpoint(device.agentUrl, "/api/system", normalizeSystem),
     fetchEndpoint(device.agentUrl, "/api/network", normalizeNetwork),
+    fetchEndpoint(device.agentUrl, "/api/services", normalizeServices),
   ]);
   const endpointAvailability = {
     health: health !== undefined,
     system: system !== undefined,
     network: network !== undefined,
+    services: services !== undefined,
   } satisfies Record<AgentEndpointName, boolean>;
   const unavailableEndpoints = (
     Object.entries(endpointAvailability) as [AgentEndpointName, boolean][]
   )
     .filter(([, available]) => !available)
     .map(([endpoint]) => endpoint);
-  const availableEndpointCount = 3 - unavailableEndpoints.length;
+  const availableEndpointCount = 4 - unavailableEndpoints.length;
 
   return {
     device,
     availability:
       availableEndpointCount === 0
         ? "unreachable"
-        : availableEndpointCount === 3
+        : availableEndpointCount === 4
           ? "online"
           : "partial",
     health,
     system,
     network,
+    services,
     endpointAvailability,
     unavailableEndpoints,
     fetchedAt: new Date().toISOString(),
@@ -182,5 +302,11 @@ export async function getMonitoredDeviceSnapshots(): Promise<
 > {
   await connection();
 
-  return Promise.all(getEnabledMonitoredDevices().map(fetchAgentSnapshot));
+  return fetchRegisteredMonitoredDeviceSnapshots();
+}
+
+export function fetchRegisteredMonitoredDeviceSnapshots(): Promise<
+  readonly AgentDeviceSnapshot[]
+> {
+  return Promise.all(monitoredDevices.map(fetchAgentSnapshot));
 }

@@ -15,10 +15,12 @@ import {
   formatThroughput,
   formatUptime,
 } from "@/lib/formatters";
-import type { AgentDeviceSnapshot } from "@/types/monitored-device";
+import type { BrowserAgentDeviceSnapshot } from "@/types/live-monitoring";
+import type { RealMonitoringAlert } from "@/types/monitoring-alert";
 
 interface RealMonitoredDevicesProps {
-  snapshots: readonly AgentDeviceSnapshot[];
+  snapshots: readonly BrowserAgentDeviceSnapshot[];
+  alerts?: readonly RealMonitoringAlert[];
 }
 
 function Detail({ label, value }: { label: string; value: string }) {
@@ -30,23 +32,78 @@ function Detail({ label, value }: { label: string; value: string }) {
   );
 }
 
-function DeviceCard({ snapshot }: { snapshot: AgentDeviceSnapshot }) {
+function ServicesSection({ snapshot }: { snapshot: BrowserAgentDeviceSnapshot }) {
+  const { services } = snapshot;
+  const healthyServiceCount =
+    services?.services.filter((service) => service.status === "up").length ?? 0;
+
+  return (
+    <section className="mt-4 rounded-md border bg-background/45 p-4" aria-label={`${snapshot.device.displayName} services`}>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-xs font-semibold">Services</p>
+        {services && services.services.length > 0 && (
+          <span className="font-mono text-[10px] text-foreground-muted">
+            {healthyServiceCount}/{services.services.length} services healthy
+          </span>
+        )}
+      </div>
+
+      {!services ? (
+        <p className="mt-3 text-xs text-foreground-muted">Service telemetry unavailable</p>
+      ) : services.services.length === 0 ? (
+        <p className="mt-3 text-xs text-foreground-muted">No service checks configured</p>
+      ) : (
+        <ul className="mt-3 divide-y divide-border">
+          {services.services.map((service, index) => (
+            <li
+              className="grid items-center gap-2 py-2 first:pt-0 last:pb-0 sm:grid-cols-[minmax(0,1fr)_auto_auto]"
+              key={`${service.type}-${service.name}-${index}`}
+            >
+              <div className="min-w-0">
+                <p className="truncate text-xs font-medium text-foreground">{service.name}</p>
+                <p className="mt-0.5 truncate font-mono text-[10px] text-foreground-subtle">
+                  {service.type.toUpperCase()}
+                  {service.type !== "tcp" && service.httpStatusCode !== null
+                    ? ` · HTTP ${service.httpStatusCode}`
+                    : ""}
+                </p>
+              </div>
+              <StatusBadge
+                status={service.status === "up" ? "online" : "offline"}
+                label={service.status.toUpperCase()}
+                compact
+              />
+              <span className="w-14 text-right font-mono text-[10px] text-foreground-muted">
+                {service.status === "up" ? `${Math.round(service.responseTimeMs)} ms` : "—"}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+function DeviceCard({ snapshot, activeAlertCount }: { snapshot: BrowserAgentDeviceSnapshot; activeAlertCount: number }) {
   const { device, health, system, network, unavailableEndpoints } = snapshot;
   const hostname = health?.hostname ?? system?.hostname ?? "Unavailable";
   const platform = health?.platform ?? system?.platform ?? "Unavailable";
   const architecture =
     health?.architecture ?? system?.architecture ?? "Unavailable";
   const isUnreachable = snapshot.availability === "unreachable";
+  const isDisabled = device.operationalState === "disabled";
   const status = isUnreachable
     ? "offline"
     : snapshot.availability === "partial"
       ? "warning"
       : "online";
-  const statusLabel = isUnreachable
-    ? "UNREACHABLE"
+  const statusLabel = isDisabled
+    ? "NOT FETCHED"
+    : isUnreachable
+    ? "AGENT UNREACHABLE"
     : snapshot.availability === "partial"
-      ? "PARTIAL DATA"
-      : "ONLINE";
+      ? "AGENT PARTIAL"
+      : "AGENT ONLINE";
 
   return (
     <article className="rounded-md border bg-surface-raised p-4">
@@ -62,14 +119,44 @@ function DeviceCard({ snapshot }: { snapshot: AgentDeviceSnapshot }) {
             </p>
           </div>
         </div>
-        <StatusBadge status={status} label={statusLabel} compact />
+        <div className="flex flex-wrap justify-end gap-2">
+          <StatusBadge
+            status={device.operationalState === "monitored" ? "informational" : device.operationalState === "maintenance" ? "maintenance" : "neutral"}
+            label={device.operationalState.toUpperCase()}
+            compact
+          />
+          {!isDisabled && <StatusBadge status={status} label={statusLabel} compact />}
+        </div>
       </header>
 
-      {isUnreachable ? (
-        <div className="mt-4 rounded-md border border-critical/25 bg-critical-muted p-4">
-          <p className="text-sm font-medium text-critical">Monitoring agent could not be reached</p>
+      {device.operationalState === "maintenance" && (
+        <p className="mt-3 rounded-md border border-warning/25 bg-warning-muted px-3 py-2 text-xs text-warning">
+          Alert evaluation suppressed while this device is in maintenance.
+        </p>
+      )}
+
+      {isDisabled && (
+        <div className="mt-4 rounded-md border bg-background/45 p-4">
+          <p className="text-sm font-medium text-foreground">Monitoring disabled</p>
           <p className="mt-1 text-xs leading-5 text-foreground-muted">
-            This registered device remains monitored. Start or reconnect its agent, then reload the page.
+            Agent endpoints were not fetched and no alerts were evaluated.
+          </p>
+        </div>
+      )}
+
+      {activeAlertCount > 0 && (
+        <p className="mt-3 font-mono text-[10px] font-medium uppercase tracking-wide text-critical">
+          {activeAlertCount} active real monitoring alert{activeAlertCount === 1 ? "" : "s"}
+        </p>
+      )}
+
+      {!isDisabled && (isUnreachable ? (
+        <div className={`mt-4 rounded-md border p-4 ${device.operationalState === "maintenance" ? "border-warning/25 bg-warning-muted" : "border-critical/25 bg-critical-muted"}`}>
+          <p className={`text-sm font-medium ${device.operationalState === "maintenance" ? "text-warning" : "text-critical"}`}>Monitoring agent could not be reached</p>
+          <p className="mt-1 text-xs leading-5 text-foreground-muted">
+            {device.operationalState === "maintenance"
+              ? "Agent unreachable. This condition is visible, but alert evaluation is suppressed."
+              : "This registered device remains monitored. Start or reconnect its agent; live polling will retry automatically."}
           </p>
         </div>
       ) : (
@@ -125,22 +212,31 @@ function DeviceCard({ snapshot }: { snapshot: AgentDeviceSnapshot }) {
               )}
             </div>
           </div>
+          <ServicesSection snapshot={snapshot} />
         </>
-      )}
+      ))}
     </article>
   );
 }
 
-export function RealMonitoredDevices({ snapshots }: RealMonitoredDevicesProps) {
+export function RealMonitoredDevices({ snapshots, alerts = [] }: RealMonitoredDevicesProps) {
+  const maintenanceCount = snapshots.filter(
+    ({ device }) => device.operationalState === "maintenance",
+  ).length;
+
   return (
     <Panel
       title="Real Monitored Devices"
-      description="Local agent monitoring · Live device state kept separate from all simulated fleet totals and analytics."
+      description={`Local agent monitoring · Live device state kept separate from all simulated fleet totals and analytics.${maintenanceCount > 0 ? ` ${maintenanceCount} device${maintenanceCount === 1 ? "" : "s"} in maintenance.` : ""}`}
       action={<StatusBadge status="informational" label={`${snapshots.length} registered`} compact />}
     >
       <div className="grid gap-4">
         {snapshots.map((snapshot) => (
-          <DeviceCard key={snapshot.device.id} snapshot={snapshot} />
+          <DeviceCard
+            key={snapshot.device.id}
+            snapshot={snapshot}
+            activeAlertCount={alerts.filter((alert) => alert.deviceId === snapshot.device.id).length}
+          />
         ))}
       </div>
     </Panel>

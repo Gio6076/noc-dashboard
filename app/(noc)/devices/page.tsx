@@ -8,7 +8,7 @@ import {
   Server,
 } from "lucide-react";
 import { DeviceInventory } from "@/components/devices/device-inventory";
-import { RealMonitoredDevices } from "@/components/agent/real-monitored-devices";
+import { LiveRealMonitoring } from "@/components/monitoring/live-real-monitoring";
 import { MetricCard } from "@/components/ui/metric-card";
 import { SectionHeader } from "@/components/ui/section-header";
 import { StatusBadge } from "@/components/ui/status-badge";
@@ -16,6 +16,8 @@ import { mockNetworkAlerts, mockNetworkDevices } from "@/data";
 import { NETWORK_THRESHOLDS } from "@/lib/constants";
 import { calculateDashboardMetrics } from "@/lib/dashboard";
 import { getMonitoredDeviceSnapshots } from "@/lib/agent-api";
+import { evaluateMonitoringAlerts } from "@/lib/monitoring-alerts";
+import { createLiveMonitoringResponse } from "@/lib/live-monitoring";
 import { formatLatency, formatPercentage } from "@/lib/formatters";
 import { getUtilizationTone } from "@/lib/status";
 
@@ -23,6 +25,11 @@ export const metadata: Metadata = { title: "Devices" };
 
 export default async function DevicesPage() {
   const monitoredDeviceSnapshots = await getMonitoredDeviceSnapshots();
+  const realMonitoringAlerts = evaluateMonitoringAlerts(monitoredDeviceSnapshots);
+  const liveMonitoringData = createLiveMonitoringResponse(
+    monitoredDeviceSnapshots,
+    realMonitoringAlerts,
+  );
   const metrics = calculateDashboardMetrics(
     mockNetworkDevices,
     mockNetworkAlerts,
@@ -47,7 +54,7 @@ export default async function DevicesPage() {
         }
       />
 
-      <RealMonitoredDevices snapshots={monitoredDeviceSnapshots} />
+      <LiveRealMonitoring initialData={liveMonitoringData} showDevices />
 
       <SectionHeader
         title="Demo Device Inventory"
