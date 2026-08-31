@@ -37,6 +37,8 @@ export interface MonitoringHistoryAlert {
   conditionKey: string;
   category: "agent" | "endpoint" | "service" | "system";
   severity: "warning" | "critical";
+  title: string;
+  message: string;
   status: "active" | "recovered";
   firstObservedAt: string;
   lastObservedAt: string;

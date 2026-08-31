@@ -1,5 +1,6 @@
 import { ArrowDownToLine, ArrowUpFromLine, Database, MemoryStick, MonitorCog } from "lucide-react";
 import { MetricCard } from "@/components/ui/metric-card";
+import { DeviceHistory } from "@/components/monitoring/device-history";
 import { Panel } from "@/components/ui/panel";
 import { ProgressBar } from "@/components/ui/progress-bar";
 import { StatusBadge } from "@/components/ui/status-badge";
@@ -56,6 +57,7 @@ function DeviceCard({ state }: { state: PersistedDeviceCurrentState }) {
         </div>
       </div>
       <ServicesSection state={state} />
+      <DeviceHistory deviceKey={device.stableKey} deviceName={device.displayName} />
     </article>
   );
 }

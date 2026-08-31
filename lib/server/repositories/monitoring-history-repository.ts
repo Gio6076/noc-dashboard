@@ -77,6 +77,8 @@ export async function readMonitoringHistoryRows(
       conditionKey: alertInstance.conditionKey,
       category: alertInstance.category,
       severity: alertInstance.severity,
+      title: alertInstance.title,
+      message: alertInstance.message,
       status: alertInstance.status,
       firstObservedAt: alertInstance.firstObservedAt,
       lastObservedAt: alertInstance.lastObservedAt,

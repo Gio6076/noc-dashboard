@@ -117,6 +117,8 @@ test("history filters non-overlapping alerts and preserves lifecycle fields", ()
     conditionKey: "service:web",
     category: "service" as const,
     severity: "critical" as const,
+    title: "Web service unavailable",
+    message: "The persisted HTTP observation is down.",
     lastObservedAt: new Date("2026-08-31T02:00:00Z"),
     observationCount: 4,
   };

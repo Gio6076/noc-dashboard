@@ -71,6 +71,8 @@ export function assembleMonitoringHistory(
         conditionKey: alert.conditionKey,
         category: alert.category,
         severity: alert.severity,
+        title: alert.title,
+        message: alert.message,
         status: alert.status,
         firstObservedAt: alert.firstObservedAt.toISOString(),
         lastObservedAt: alert.lastObservedAt.toISOString(),
