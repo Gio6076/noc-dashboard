@@ -4,26 +4,20 @@ import { RefreshCw } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { RealMonitoredDevices } from "@/components/agent/real-monitored-devices";
 import { RealMonitoringAlerts } from "@/components/alerts/real-monitoring-alerts";
-import { retainLastGoodMonitoringData } from "@/lib/live-monitoring";
-import type { LiveMonitoringResponse } from "@/types/live-monitoring";
+import {
+  collectionFreshnessLabel,
+  isPersistedMonitoringState,
+  retainLastGoodPersistedMonitoringData,
+} from "@/lib/persisted-monitoring-ui";
+import type { PersistedMonitoringState } from "@/types/persisted-monitoring";
 
 export const LIVE_MONITORING_POLL_INTERVAL_MS = 10_000;
 
 interface LiveRealMonitoringProps {
-  initialData: LiveMonitoringResponse;
+  initialData: PersistedMonitoringState;
   showDevices?: boolean;
   showAlerts?: boolean;
   compactAlerts?: boolean;
-}
-
-function isLiveMonitoringResponse(value: unknown): value is LiveMonitoringResponse {
-  if (!value || typeof value !== "object") return false;
-  const candidate = value as Partial<LiveMonitoringResponse>;
-  return (
-    Array.isArray(candidate.snapshots) &&
-    Array.isArray(candidate.alerts) &&
-    typeof candidate.fetchedAt === "string"
-  );
 }
 
 export function LiveRealMonitoring({
@@ -43,20 +37,20 @@ export function LiveRealMonitoring({
     setIsRefreshing(true);
 
     try {
-      const response = await fetch("/api/monitoring/snapshots", {
+      const response = await fetch("/api/monitoring/persisted", {
         cache: "no-store",
       });
       const result: unknown = response.ok ? await response.json() : null;
       if (!mounted.current) return;
       setState((current) =>
-        retainLastGoodMonitoringData(
+        retainLastGoodPersistedMonitoringData(
           current,
-          isLiveMonitoringResponse(result) ? result : null,
+          isPersistedMonitoringState(result) ? result : null,
         ),
       );
     } catch {
       if (mounted.current) {
-        setState((current) => retainLastGoodMonitoringData(current, null));
+        setState((current) => retainLastGoodPersistedMonitoringData(current, null));
       }
     } finally {
       requestInFlight.current = false;
@@ -75,14 +69,14 @@ export function LiveRealMonitoring({
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-end gap-3 text-[11px] text-foreground-muted" aria-live="polite">
-        <span>
-          {state.refreshError
-            ? "Refresh failed · showing last successful data"
-            : isRefreshing
-              ? "Refreshing…"
-              : `Last updated: ${new Date(state.data.fetchedAt).toLocaleTimeString()}`}
-        </span>
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border bg-surface-raised px-3 py-2 text-[11px] text-foreground-muted" aria-live="polite">
+        <div>
+          <p className={state.data.collection.freshness.status === "stale" ? "font-medium text-warning" : state.data.collection.freshness.status === "unavailable" ? "font-medium text-foreground-muted" : "font-medium text-healthy"}>
+            {collectionFreshnessLabel(state.data)}
+          </p>
+          {state.refreshError && <p className="mt-0.5 text-warning">Refresh failed · showing last successful persisted data</p>}
+          {isRefreshing && <p className="mt-0.5">Checking PostgreSQL for updates…</p>}
+        </div>
         <button
           type="button"
           onClick={() => void refresh()}
@@ -93,8 +87,8 @@ export function LiveRealMonitoring({
           Refresh now
         </button>
       </div>
-      {showDevices && <RealMonitoredDevices snapshots={state.data.snapshots} alerts={state.data.alerts} />}
-      {showAlerts && <RealMonitoringAlerts alerts={state.data.alerts} compact={compactAlerts} />}
+      {showDevices && <RealMonitoredDevices devices={state.data.devices} />}
+      {showAlerts && <RealMonitoringAlerts devices={state.data.devices} compact={compactAlerts} />}
     </div>
   );
 }

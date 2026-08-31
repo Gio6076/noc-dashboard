@@ -2,7 +2,7 @@
 
 A portfolio-quality Network Operations Center dashboard for monitoring a small enterprise or school network. It presents infrastructure health, device inventory, network telemetry, alerts, incidents, and reliability analytics in a responsive dark operations interface.
 
-The dashboard combines its original deterministic demonstration pages with live FastAPI-agent monitoring. PostgreSQL persistence and a server-side persisted current-state read model are available, but the live dashboard UI does not read from PostgreSQL yet.
+The dashboard combines its original deterministic demonstration pages with persisted FastAPI-agent monitoring. Real monitoring follows `Agents → Independent Collector → PostgreSQL → Dashboard`; the demonstration fleet remains separate and deterministic.
 
 ## Capabilities
 
@@ -48,9 +48,13 @@ Route pages remain React Server Components. They import deterministic records fr
 - Search, filters, native dialogs, and demonstration acknowledgement/settings state
 - Responsive Recharts visualizations and tooltips
 
+The real-monitoring subtrees on Overview, Devices, and Alerts receive their initial sanitized current state from PostgreSQL during server rendering, then poll `GET /api/monitoring/persisted` approximately every 10 seconds. The independent collector writes on its separate default 20-second cadence. Browser requests never trigger collection. If collection stops, the UI retains last-known observations and telemetry while clearly marking collection and sample freshness as stale. If a browser refresh fails, the last successful response remains visible.
+
+`GET /api/monitoring/snapshots` remains available as a direct-agent diagnostic endpoint, but normal dashboard rendering and polling do not depend on it.
+
 Domain contracts live in `types/network.ts`. Mock devices, alerts, activity, incidents, and time-series samples are separated into focused modules under `data/`. Dashboard, telemetry, incident, analytics, formatting, and semantic-status calculations live under `lib/`, keeping components independent of the mock source.
 
-This boundary allows a future API adapter to normalize real monitoring responses into the existing domain interfaces without redesigning the UI.
+Persisted byte counters cross JSON as exact decimal strings and are formatted without unsafe integer narrowing.
 
 ## Run locally
 

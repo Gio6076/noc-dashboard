@@ -1,22 +1,17 @@
 import type { Metadata } from "next";
+import { connection } from "next/server";
 import { AlertConsole } from "@/components/alerts/alert-console";
 import { LiveRealMonitoring } from "@/components/monitoring/live-real-monitoring";
 import { SectionHeader } from "@/components/ui/section-header";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { mockNetworkAlerts, mockNetworkDevices } from "@/data";
-import { getMonitoredDeviceSnapshots } from "@/lib/agent-api";
-import { evaluateMonitoringAlerts } from "@/lib/monitoring-alerts";
-import { createLiveMonitoringResponse } from "@/lib/live-monitoring";
+import { getPersistedMonitoringState } from "@/lib/server/monitoring/get-persisted-monitoring-state";
 
 export const metadata: Metadata = { title: "Alerts" };
 
 export default async function AlertsPage() {
-  const snapshots = await getMonitoredDeviceSnapshots();
-  const realMonitoringAlerts = evaluateMonitoringAlerts(snapshots);
-  const liveMonitoringData = createLiveMonitoringResponse(
-    snapshots,
-    realMonitoringAlerts,
-  );
+  await connection();
+  const persistedMonitoringData = await getPersistedMonitoringState();
 
   return (
     <div className="space-y-5 xl:space-y-6">
@@ -26,11 +21,11 @@ export default async function AlertsPage() {
         action={
           <StatusBadge
             status="informational"
-            label="Live polling"
+            label="Persisted polling"
           />
         }
       />
-      <LiveRealMonitoring initialData={liveMonitoringData} showAlerts />
+      <LiveRealMonitoring initialData={persistedMonitoringData} showAlerts />
       <SectionHeader
         title="Demo / Simulated Alerts"
         description="Deterministic demonstration data. Session-level acknowledgement controls below do not apply to real monitoring alerts."

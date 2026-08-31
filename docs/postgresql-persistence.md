@@ -11,11 +11,13 @@ Agents -> independent Collector -> PostgreSQL
 PostgreSQL -> server-side persisted monitoring read layer
 ```
 
-The Overview, Devices, and Alerts UI still uses the existing live agent path. The new read layer is infrastructure for a later UI migration; it does not replace or alter live collection.
+The real-monitoring sections on Overview, Devices, and Alerts now use this persisted read layer. The deterministic demo fleet remains separate and unchanged. Direct agent snapshots are retained only as a diagnostic path.
 
 ## Persisted current-state reads
 
 `getPersistedMonitoringState()` is a server-only data-access function. Its repository uses set-based queries to load registered devices, the latest device observation, the latest successfully persisted system and network samples, every service definition with its latest observation, active alert instances, and the latest completed or partial collection run. Timestamp ties are resolved deterministically by UUID in descending order. A read-only diagnostic endpoint is available at `GET /api/monitoring/persisted`; it is dynamic, sends `Cache-Control: no-store`, omits service targets, and returns a generic 503 rather than database details on failure.
+
+Pages call that server-side abstraction for their initial render. A narrowly scoped client subtree polls the persisted endpoint every 10 seconds without overlapping requests. The collector's default 20-second write interval is independent: reading the dashboard never invokes agents or starts a collection. `GET /api/monitoring/snapshots` still fetches agents directly for diagnostics.
 
 Current availability comes only from the latest device observation. System and network values independently retain their last successfully persisted sample, including its real observation timestamp. Consequently, a later unreachable observation does not erase earlier telemetry or make it appear current.
 
@@ -26,6 +28,8 @@ Freshness is evaluated on the server against a centralized 60-second policy:
 - `unavailable`: no sample exists.
 
 The same representation describes collection freshness using the latest completed/partial run time. Operational state (`monitored`, `maintenance`, or `disabled`) remains separate from observed availability. Reads do not evaluate alerts, invent service status, or manufacture state for maintenance/disabled devices. Services without observations have a `null` latest observation, and only PostgreSQL `active` alert instances are returned.
+
+When the collector is stopped, stored availability is not rewritten and no outage is fabricated. Collection freshness and sample freshness age into `stale`, while the dashboard continues to show timestamped last-known telemetry. A temporary persisted API failure similarly preserves the browser's last successful state and displays a refresh warning.
 
 PostgreSQL `bigint` telemetry fields become exact base-10 strings in the read DTO. This keeps the internal function and diagnostic JSON endpoint serializable without narrowing values beyond JavaScript's safe integer range.
 

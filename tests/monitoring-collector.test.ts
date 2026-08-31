@@ -3,10 +3,28 @@ import test from "node:test";
 
 import {
   DEFAULT_COLLECTION_INTERVAL_SECONDS,
+  formatCollectorCycleCompletion,
   parseCollectionIntervalSeconds,
   runCollectorLoop,
   waitForCollectorDelay,
 } from "../lib/monitoring-collector.ts";
+
+test("collector completion log reports the persisted run status", () => {
+  const result = {
+    collectionRunId: "run-id",
+    devicesAttempted: 2,
+    devicesSucceeded: 1,
+    alertsDetected: 0,
+  };
+  assert.match(
+    formatCollectorCycleCompletion({ ...result, status: "completed" }, 100),
+    /status=completed/,
+  );
+  assert.match(
+    formatCollectorCycleCompletion({ ...result, status: "partial" }, 100),
+    /status=partial/,
+  );
+});
 
 test("collection interval defaults to 20 seconds", () => {
   assert.equal(parseCollectionIntervalSeconds(undefined), 20);

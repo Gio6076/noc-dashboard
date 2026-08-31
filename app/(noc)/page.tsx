@@ -6,6 +6,7 @@ import {
   RadioTower,
   Server,
 } from "lucide-react";
+import { connection } from "next/server";
 import { DeviceStatusOverview } from "@/components/dashboard/device-status-overview";
 import { LiveRealMonitoring } from "@/components/monitoring/live-real-monitoring";
 import { LatencyChart } from "@/components/dashboard/latency-chart";
@@ -27,9 +28,7 @@ import {
 } from "@/data";
 import { NETWORK_THRESHOLDS, SYSTEM_NAME } from "@/lib/constants";
 import { calculateDashboardMetrics } from "@/lib/dashboard";
-import { getMonitoredDeviceSnapshots } from "@/lib/agent-api";
-import { evaluateMonitoringAlerts } from "@/lib/monitoring-alerts";
-import { createLiveMonitoringResponse } from "@/lib/live-monitoring";
+import { getPersistedMonitoringState } from "@/lib/server/monitoring/get-persisted-monitoring-state";
 import {
   formatLatency,
   formatPercentage,
@@ -43,12 +42,8 @@ const severityPriority = {
 } as const;
 
 export default async function OverviewPage() {
-  const monitoredDeviceSnapshots = await getMonitoredDeviceSnapshots();
-  const realMonitoringAlerts = evaluateMonitoringAlerts(monitoredDeviceSnapshots);
-  const liveMonitoringData = createLiveMonitoringResponse(
-    monitoredDeviceSnapshots,
-    realMonitoringAlerts,
-  );
+  await connection();
+  const persistedMonitoringData = await getPersistedMonitoringState();
   const metrics = calculateDashboardMetrics(
     mockNetworkDevices,
     mockNetworkAlerts,
@@ -175,7 +170,7 @@ export default async function OverviewPage() {
       </section>
 
       <LiveRealMonitoring
-        initialData={liveMonitoringData}
+        initialData={persistedMonitoringData}
         showDevices
         showAlerts
         compactAlerts

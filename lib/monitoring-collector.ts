@@ -1,6 +1,21 @@
 export const DEFAULT_COLLECTION_INTERVAL_SECONDS = 20;
 export const MINIMUM_COLLECTION_INTERVAL_SECONDS = 5;
 
+export interface CollectorCycleCompletion {
+  collectionRunId: string;
+  status: "completed" | "partial";
+  devicesAttempted: number;
+  devicesSucceeded: number;
+  alertsDetected: number;
+}
+
+export function formatCollectorCycleCompletion(
+  result: CollectorCycleCompletion,
+  durationMilliseconds: number,
+): string {
+  return `Monitoring cycle completed: runId=${result.collectionRunId} status=${result.status} durationMs=${durationMilliseconds} devicesAttempted=${result.devicesAttempted} devicesSucceeded=${result.devicesSucceeded} alertsDetected=${result.alertsDetected}`;
+}
+
 export function parseCollectionIntervalSeconds(value: string | undefined): number {
   if (value === undefined) return DEFAULT_COLLECTION_INTERVAL_SECONDS;
 

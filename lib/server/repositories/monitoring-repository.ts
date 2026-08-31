@@ -238,13 +238,18 @@ export async function completeCollectionRun(
   startedAt: Date,
   devicesAttempted: number,
   devicesSucceeded: number,
-) {
+): Promise<{ status: "completed" | "partial" }> {
   const completedAt = new Date();
-  await tx.update(collectionRun).set({
+  const [completedRun] = await tx.update(collectionRun).set({
     completedAt,
     status: devicesSucceeded === devicesAttempted ? "completed" : "partial",
     durationMs: completedAt.getTime() - startedAt.getTime(),
     devicesAttempted,
     devicesSucceeded,
-  }).where(eq(collectionRun.id, runId));
+  }).where(eq(collectionRun.id, runId)).returning({ status: collectionRun.status });
+  if (!completedRun) throw new Error("Collection run does not exist");
+  if (completedRun.status !== "completed" && completedRun.status !== "partial") {
+    throw new Error("Collection run has an invalid completion status");
+  }
+  return { status: completedRun.status };
 }

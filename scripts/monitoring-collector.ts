@@ -1,6 +1,7 @@
 import { loadEnvConfig } from "@next/env";
 
 import {
+  formatCollectorCycleCompletion,
   parseCollectionIntervalSeconds,
   runCollectorLoop,
   sanitizedErrorName,
@@ -48,9 +49,7 @@ async function main() {
       runCycle: runPersistedMonitoringCycle,
       onCycleStart: () => console.log("Monitoring cycle started"),
       onCycleComplete: (result, durationMilliseconds) => {
-        console.log(
-          `Monitoring cycle completed: runId=${result.collectionRunId} status=completed durationMs=${durationMilliseconds} devicesAttempted=${result.devicesAttempted} devicesSucceeded=${result.devicesSucceeded} alertsDetected=${result.alertsDetected}`,
-        );
+        console.log(formatCollectorCycleCompletion(result, durationMilliseconds));
       },
       onCycleFailure: (error, durationMilliseconds) => {
         console.error(

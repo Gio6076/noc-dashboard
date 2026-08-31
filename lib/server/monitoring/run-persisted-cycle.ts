@@ -27,6 +27,7 @@ import {
 
 export interface PersistedMonitoringCycleResult {
   collectionRunId: string;
+  status: "completed" | "partial";
   devicesAttempted: number;
   devicesSucceeded: number;
   alertsDetected: number;
@@ -47,7 +48,7 @@ export async function runPersistedMonitoringCycle(): Promise<PersistedMonitoring
       (snapshot) => snapshot.availability === "online" || snapshot.availability === "partial",
     ).length;
 
-    await db.transaction(async (tx) => {
+    const completedRun = await db.transaction(async (tx) => {
       const deviceIds = new Map<string, string>();
       for (const device of monitoredDevices) {
         deviceIds.set(device.id, await upsertMonitoredDevice(tx, device));
@@ -83,7 +84,7 @@ export async function runPersistedMonitoringCycle(): Promise<PersistedMonitoring
         serviceIdsByCondition,
         new Date(),
       );
-      await completeCollectionRun(
+      return completeCollectionRun(
         tx,
         run.id,
         startedAt,
@@ -94,6 +95,7 @@ export async function runPersistedMonitoringCycle(): Promise<PersistedMonitoring
 
     return {
       collectionRunId: run.id,
+      status: completedRun.status,
       devicesAttempted: attemptedSnapshots.length,
       devicesSucceeded,
       alertsDetected: alerts.length,

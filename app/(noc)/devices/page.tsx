@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { connection } from "next/server";
 import {
   BellRing,
   CircleCheck,
@@ -15,21 +16,15 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { mockNetworkAlerts, mockNetworkDevices } from "@/data";
 import { NETWORK_THRESHOLDS } from "@/lib/constants";
 import { calculateDashboardMetrics } from "@/lib/dashboard";
-import { getMonitoredDeviceSnapshots } from "@/lib/agent-api";
-import { evaluateMonitoringAlerts } from "@/lib/monitoring-alerts";
-import { createLiveMonitoringResponse } from "@/lib/live-monitoring";
+import { getPersistedMonitoringState } from "@/lib/server/monitoring/get-persisted-monitoring-state";
 import { formatLatency, formatPercentage } from "@/lib/formatters";
 import { getUtilizationTone } from "@/lib/status";
 
 export const metadata: Metadata = { title: "Devices" };
 
 export default async function DevicesPage() {
-  const monitoredDeviceSnapshots = await getMonitoredDeviceSnapshots();
-  const realMonitoringAlerts = evaluateMonitoringAlerts(monitoredDeviceSnapshots);
-  const liveMonitoringData = createLiveMonitoringResponse(
-    monitoredDeviceSnapshots,
-    realMonitoringAlerts,
-  );
+  await connection();
+  const persistedMonitoringData = await getPersistedMonitoringState();
   const metrics = calculateDashboardMetrics(
     mockNetworkDevices,
     mockNetworkAlerts,
@@ -49,12 +44,12 @@ export default async function DevicesPage() {
         action={
           <StatusBadge
             status={metrics.offlineDevices > 0 ? "critical" : "healthy"}
-            label={`${monitoredDeviceSnapshots.length} real registered`}
+            label={`${persistedMonitoringData.devices.length} real registered`}
           />
         }
       />
 
-      <LiveRealMonitoring initialData={liveMonitoringData} showDevices />
+      <LiveRealMonitoring initialData={persistedMonitoringData} showDevices />
 
       <SectionHeader
         title="Demo Device Inventory"
