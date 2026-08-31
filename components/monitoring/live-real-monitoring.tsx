@@ -4,29 +4,35 @@ import { RefreshCw } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { RealMonitoredDevices } from "@/components/agent/real-monitored-devices";
 import { RealMonitoringAlerts } from "@/components/alerts/real-monitoring-alerts";
+import { MonitoringCapabilityState } from "@/components/monitoring/monitoring-capability-state";
 import {
   collectionFreshnessLabel,
+  applyPersistedMonitoringRefresh,
   isPersistedMonitoringState,
-  retainLastGoodPersistedMonitoringData,
 } from "@/lib/persisted-monitoring-ui";
 import type { PersistedMonitoringState } from "@/types/persisted-monitoring";
+import type { MonitoringCapabilityResult } from "@/lib/monitoring-capability";
 
 export const LIVE_MONITORING_POLL_INTERVAL_MS = 10_000;
 
 interface LiveRealMonitoringProps {
-  initialData: PersistedMonitoringState;
+  initialResult: MonitoringCapabilityResult<PersistedMonitoringState>;
   showDevices?: boolean;
   showAlerts?: boolean;
   compactAlerts?: boolean;
 }
 
 export function LiveRealMonitoring({
-  initialData,
+  initialResult,
   showDevices = false,
   showAlerts = false,
   compactAlerts = false,
 }: LiveRealMonitoringProps) {
-  const [state, setState] = useState({ data: initialData, refreshError: false });
+  const [state, setState] = useState({
+    data: initialResult.status === "available" ? initialResult.data : null,
+    capability: initialResult.status,
+    refreshError: false,
+  });
   const [isRefreshing, setIsRefreshing] = useState(false);
   const requestInFlight = useRef(false);
   const mounted = useRef(true);
@@ -42,15 +48,10 @@ export function LiveRealMonitoring({
       });
       const result: unknown = response.ok ? await response.json() : null;
       if (!mounted.current) return;
-      setState((current) =>
-        retainLastGoodPersistedMonitoringData(
-          current,
-          isPersistedMonitoringState(result) ? result : null,
-        ),
-      );
+      setState((current) => applyPersistedMonitoringRefresh(current, isPersistedMonitoringState(result) ? result : null));
     } catch {
       if (mounted.current) {
-        setState((current) => retainLastGoodPersistedMonitoringData(current, null));
+        setState((current) => applyPersistedMonitoringRefresh(current, null));
       }
     } finally {
       requestInFlight.current = false;
@@ -60,12 +61,15 @@ export function LiveRealMonitoring({
 
   useEffect(() => {
     mounted.current = true;
+    if (initialResult.status === "disabled") return;
     const timer = window.setInterval(() => void refresh(), LIVE_MONITORING_POLL_INTERVAL_MS);
     return () => {
       mounted.current = false;
       window.clearInterval(timer);
     };
-  }, [refresh]);
+  }, [initialResult.status, refresh]);
+
+  if (!state.data) return <MonitoringCapabilityState status={state.capability === "disabled" ? "disabled" : "unavailable"} />;
 
   return (
     <div className="space-y-4">

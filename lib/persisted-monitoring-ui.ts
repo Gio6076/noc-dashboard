@@ -3,6 +3,7 @@ import type {
   PersistedDataFreshness,
   PersistedMonitoringState,
 } from "../types/persisted-monitoring.ts";
+import type { MonitoringCapabilityStatus } from "./monitoring-capability.ts";
 
 export function persistedDevicePresentation(state: PersistedDeviceCurrentState) {
   const availability = state.latestObservation?.availability ?? "not-fetched";
@@ -32,6 +33,25 @@ export function persistedActiveAlerts(devices: readonly PersistedDeviceCurrentSt
 export interface PersistedMonitoringClientState {
   data: PersistedMonitoringState;
   refreshError: boolean;
+}
+
+export interface CapabilityAwareMonitoringClientState {
+  data: PersistedMonitoringState | null;
+  capability: MonitoringCapabilityStatus;
+  refreshError: boolean;
+}
+
+export function applyPersistedMonitoringRefresh(
+  state: CapabilityAwareMonitoringClientState,
+  result: PersistedMonitoringState | null,
+): CapabilityAwareMonitoringClientState {
+  return result
+    ? { data: result, capability: "available", refreshError: false }
+    : {
+        ...state,
+        capability: state.data ? state.capability : "unavailable",
+        refreshError: true,
+      };
 }
 
 export function retainLastGoodPersistedMonitoringData(

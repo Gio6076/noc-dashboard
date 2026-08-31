@@ -3,7 +3,7 @@ import "server-only";
 import { and, asc, eq, gte, isNull, lte, or } from "drizzle-orm";
 import type { ReliabilityRows } from "@/lib/reliability-analytics";
 import { MAXIMUM_RELIABILITY_EVIDENCE_GAP_MS } from "@/lib/reliability-analytics";
-import { db } from "@/lib/server/db/client";
+import { getDatabase } from "@/lib/server/db/client";
 import {
   alertInstance,
   deviceObservation,
@@ -21,6 +21,7 @@ export async function readMonitoringReliabilityRows(
   deviceKey: string,
   window: { from: Date; to: Date },
 ): Promise<ReliabilityRows> {
+  const db = getDatabase();
   const [device] = await db.select({
     id: monitoredDevice.id,
     stableKey: monitoredDevice.stableKey,

@@ -1,7 +1,7 @@
 import "server-only";
 
 import { and, eq, sql } from "drizzle-orm";
-import { db, type Database } from "@/lib/server/db/client";
+import { getDatabase, type Database } from "@/lib/server/db/client";
 import {
   alertInstance,
   alertStateTransition,
@@ -22,6 +22,7 @@ export type MonitoringTransaction = Parameters<Parameters<Database["transaction"
 type SnapshotMapping = ReturnType<typeof mapSnapshotForPersistence>;
 
 export async function createCollectionRun(startedAt: Date) {
+  const db = getDatabase();
   const [run] = await db.insert(collectionRun).values({
     startedAt,
     status: "running",
@@ -32,6 +33,7 @@ export async function createCollectionRun(startedAt: Date) {
 }
 
 export async function failCollectionRun(runId: string, startedAt: Date) {
+  const db = getDatabase();
   const completedAt = new Date();
   await db.update(collectionRun).set({
     status: "failed",

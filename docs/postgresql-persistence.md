@@ -11,11 +11,32 @@ Agents -> independent Collector -> PostgreSQL
 PostgreSQL -> server-side persisted monitoring read layer
 ```
 
-The real-monitoring sections on Overview, Devices, and Alerts now use this persisted read layer. The deterministic demo fleet remains separate and unchanged. Direct agent snapshots are retained only as a diagnostic path.
+The real-monitoring sections on Overview, Devices, Alerts, and Analytics use this persisted read layer when its server-only capability is enabled. The deterministic demo fleet remains separate and unchanged. Direct agent snapshots are retained only as a private-lab diagnostic path.
+
+## Deployment-safe capability
+
+`NOC_PERSISTED_MONITORING_ENABLED` is strictly parsed and server-only. Only `true` enables persisted reads. `false`, a missing value, or an invalid value produces the safe `disabled` state without initializing a PostgreSQL pool. If enabled without `DATABASE_URL`, or if a configured read fails, the state is `unavailable`. A successful read is `available`.
+
+The recommended Vercel configuration today is:
+
+```dotenv
+NOC_PERSISTED_MONITORING_ENABLED=false
+```
+
+`DATABASE_URL` is not required in that mode. Overview, Devices, Alerts, and Analytics continue to render their demo sections and show an intentional Real Monitoring Lab message. Disabled and unavailable APIs return sanitized `503` responses rather than fake empty datasets. Database failure never changes a device to unreachable, creates an alert, or creates zero-coverage reliability data.
+
+Local/private-lab mode uses both settings:
+
+```dotenv
+NOC_PERSISTED_MONITORING_ENABLED=true
+DATABASE_URL=postgresql://...
+```
+
+A future production monitoring deployment requires a reachable secured datastore or ingestion design. Do not expose private agents using router port forwarding, and do not make a public Vercel deployment depend on LAN URLs.
 
 ## Persisted current-state reads
 
-`getPersistedMonitoringState()` is a server-only data-access function. Its repository uses set-based queries to load registered devices, the latest device observation, the latest successfully persisted system and network samples, every service definition with its latest observation, active alert instances, and the latest completed or partial collection run. Timestamp ties are resolved deterministically by UUID in descending order. A read-only diagnostic endpoint is available at `GET /api/monitoring/persisted`; it is dynamic, sends `Cache-Control: no-store`, omits service targets, and returns a generic 503 rather than database details on failure.
+`getPersistedMonitoringState()` is a server-only data-access function behind the typed capability boundary. Its repository uses set-based queries to load registered devices, the latest device observation, the latest successfully persisted system and network samples, every service definition with its latest observation, active alert instances, and the latest completed or partial collection run. Timestamp ties are resolved deterministically by UUID in descending order. A read-only diagnostic endpoint is available at `GET /api/monitoring/persisted`; it is dynamic, sends `Cache-Control: no-store`, omits service targets, and returns a typed sanitized 503 rather than database details on disabled/unavailable paths.
 
 Pages call that server-side abstraction for their initial render. A narrowly scoped client subtree polls the persisted endpoint every 10 seconds without overlapping requests. The collector's default 20-second write interval is independent: reading the dashboard never invokes agents or starts a collection. `GET /api/monitoring/snapshots` still fetches agents directly for diagnostics.
 
@@ -79,6 +100,7 @@ Copy the example variables to an ignored `.env.local` and set the server-only co
 
 ```dotenv
 DATABASE_URL=postgresql://noc_dashboard:choose-a-local-password@127.0.0.1:5432/noc_dashboard
+NOC_PERSISTED_MONITORING_ENABLED=true
 ```
 
 `DATABASE_URL` has no `NEXT_PUBLIC_` prefix and is read only by the migration tools and modules under `lib/server/`. Do not commit `.env.local`.

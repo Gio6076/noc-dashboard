@@ -50,9 +50,9 @@ Route pages remain React Server Components. They import deterministic records fr
 - Search, filters, native dialogs, and demonstration acknowledgement/settings state
 - Responsive Recharts visualizations and tooltips
 
-The real-monitoring subtrees on Overview, Devices, and Alerts receive their initial sanitized current state from PostgreSQL during server rendering, then poll `GET /api/monitoring/persisted` approximately every 10 seconds. The independent collector writes on its separate default 20-second cadence. Browser requests never trigger collection. If collection stops, the UI retains last-known observations and telemetry while clearly marking collection and sample freshness as stale. If a browser refresh fails, the last successful response remains visible.
+When persisted monitoring is enabled, the real-monitoring subtrees on Overview, Devices, and Alerts receive their initial sanitized current state from PostgreSQL during server rendering, then poll `GET /api/monitoring/persisted` approximately every 10 seconds. The independent collector writes on its separate default 20-second cadence. Browser requests never trigger collection. If collection stops, the UI retains last-known observations and telemetry while clearly marking collection and sample freshness as stale. If a browser refresh fails, the last successful response remains visible. A client with no successful response shows backend unavailability instead of inventing device or alert state.
 
-`GET /api/monitoring/snapshots` remains available as a direct-agent diagnostic endpoint, but normal dashboard rendering and polling do not depend on it.
+`GET /api/monitoring/snapshots` remains available as a direct-agent diagnostic endpoint in enabled private-lab mode, but normal dashboard rendering and polling do not depend on it. It is disabled in public-safe mode.
 
 The Analytics page server-renders a 24-hour reliability result for the first persisted device, then fetches the reliability API only on device/window changes or manual refresh. Availability is always paired with evidence coverage and unknown time. Service observed DOWN evidence is sample-derived, while recovered outage duration and MTTR come from persistent alert occurrence timestamps; MTTR excludes active outages. These are monitoring analytics, not contractual SLA/SLO calculations.
 
@@ -71,6 +71,18 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000).
 
+### Deployment capability modes
+
+Persisted real monitoring is controlled by the server-only `NOC_PERSISTED_MONITORING_ENABLED` setting. Only the exact value `true` enables it; `false`, a missing value, or any invalid value safely disables it. The variable is intentionally not prefixed with `NEXT_PUBLIC_`.
+
+- **Local development / private lab:** set `NOC_PERSISTED_MONITORING_ENABLED=true` and a valid `DATABASE_URL`. Current state, persistent alerts, history, and reliability analytics use the existing PostgreSQL contracts.
+- **Current Vercel portfolio:** set `NOC_PERSISTED_MONITORING_ENABLED=false` and omit `DATABASE_URL`. The Real Monitoring Lab sections show an intentional disabled state while every demo section remains usable. This is the recommended current production configuration.
+- **Future production monitoring:** enable the capability only after a secured, publicly reachable datastore or ingestion architecture exists. This phase does not provide one.
+
+If monitoring is enabled but `DATABASE_URL` is missing or PostgreSQL cannot be read, the capability is reported as temporarily unavailable. It is never translated into unreachable devices, empty alerts, or zero-percent reliability. API failures are sanitized `503` responses.
+
+Private agents must not be exposed with router port forwarding merely to make Vercel reach them. A future design should use an authenticated, secured ingestion/data architecture rather than exposing local agent or LAN endpoints.
+
 Run code-quality and production checks:
 
 ```bash
@@ -83,7 +95,7 @@ For database setup, migrations, schema details, alert recovery rules, and the ma
 
 ## Demonstration limitations
 
-- All monitoring records are local, fixed mock data.
+- The public portfolio's demo fleet is fixed mock data and remains separate from optional private-lab monitoring.
 - Alert acknowledgements and Settings changes are harmless client-side state and reset without persistence.
 - Refresh intervals, thresholds, and notification preferences do not configure real infrastructure.
 - Persistence collection is manual and unscheduled; historical UI, notification delivery, and authentication are not implemented.
@@ -100,4 +112,4 @@ A production evolution can preserve the current UI and domain contracts while ad
 4. Server-side aggregation and threshold evaluation using the same concepts represented by the current pure helpers.
 5. Streaming or polling updates, notification delivery, audit trails, and role-based access.
 
-The project is structured for GitHub source control and a standard Vercel Next.js deployment. Deployment would publish the demonstration UI only until external monitoring services and persistent infrastructure are configured.
+The project is structured for GitHub source control and a standard Vercel Next.js deployment. The current deployment intentionally publishes the complete demonstration UI while presenting private-lab monitoring as disabled until external monitoring services and secured persistent infrastructure are configured.

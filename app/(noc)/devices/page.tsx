@@ -16,7 +16,7 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { mockNetworkAlerts, mockNetworkDevices } from "@/data";
 import { NETWORK_THRESHOLDS } from "@/lib/constants";
 import { calculateDashboardMetrics } from "@/lib/dashboard";
-import { getPersistedMonitoringState } from "@/lib/server/monitoring/get-persisted-monitoring-state";
+import { getPersistedMonitoringCapability } from "@/lib/server/monitoring/get-persisted-monitoring-state";
 import { formatLatency, formatPercentage } from "@/lib/formatters";
 import { getUtilizationTone } from "@/lib/status";
 
@@ -24,7 +24,7 @@ export const metadata: Metadata = { title: "Devices" };
 
 export default async function DevicesPage() {
   await connection();
-  const persistedMonitoringData = await getPersistedMonitoringState();
+  const persistedMonitoring = await getPersistedMonitoringCapability();
   const metrics = calculateDashboardMetrics(
     mockNetworkDevices,
     mockNetworkAlerts,
@@ -44,12 +44,12 @@ export default async function DevicesPage() {
         action={
           <StatusBadge
             status={metrics.offlineDevices > 0 ? "critical" : "healthy"}
-            label={`${persistedMonitoringData.devices.length} real registered`}
+            label={persistedMonitoring.status === "available" ? `${persistedMonitoring.data.devices.length} real registered` : "Real lab offline"}
           />
         }
       />
 
-      <LiveRealMonitoring initialData={persistedMonitoringData} showDevices />
+      <LiveRealMonitoring initialResult={persistedMonitoring} showDevices />
 
       <SectionHeader
         title="Demo Device Inventory"

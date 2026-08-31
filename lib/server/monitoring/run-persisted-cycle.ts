@@ -10,7 +10,7 @@ import {
   serviceStableKey,
 } from "@/lib/persistence/identity";
 import { mapSnapshotForPersistence } from "@/lib/persistence/mapping";
-import { db } from "@/lib/server/db/client";
+import { getDatabase } from "@/lib/server/db/client";
 import {
   applyAlertLifecyclePlan,
   completeCollectionRun,
@@ -34,6 +34,7 @@ export interface PersistedMonitoringCycleResult {
 }
 
 export async function runPersistedMonitoringCycle(): Promise<PersistedMonitoringCycleResult> {
+  const db = getDatabase();
   const startedAt = new Date();
   const run = await createCollectionRun(startedAt);
 

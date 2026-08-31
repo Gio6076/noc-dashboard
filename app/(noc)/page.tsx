@@ -28,7 +28,7 @@ import {
 } from "@/data";
 import { NETWORK_THRESHOLDS, SYSTEM_NAME } from "@/lib/constants";
 import { calculateDashboardMetrics } from "@/lib/dashboard";
-import { getPersistedMonitoringState } from "@/lib/server/monitoring/get-persisted-monitoring-state";
+import { getPersistedMonitoringCapability } from "@/lib/server/monitoring/get-persisted-monitoring-state";
 import {
   formatLatency,
   formatPercentage,
@@ -43,7 +43,7 @@ const severityPriority = {
 
 export default async function OverviewPage() {
   await connection();
-  const persistedMonitoringData = await getPersistedMonitoringState();
+  const persistedMonitoring = await getPersistedMonitoringCapability();
   const metrics = calculateDashboardMetrics(
     mockNetworkDevices,
     mockNetworkAlerts,
@@ -170,7 +170,7 @@ export default async function OverviewPage() {
       </section>
 
       <LiveRealMonitoring
-        initialData={persistedMonitoringData}
+        initialResult={persistedMonitoring}
         showDevices
         showAlerts
         compactAlerts

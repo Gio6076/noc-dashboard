@@ -1,7 +1,7 @@
 import "server-only";
 
 import { desc, eq, inArray } from "drizzle-orm";
-import { db } from "@/lib/server/db/client";
+import { getDatabase } from "@/lib/server/db/client";
 import {
   alertInstance,
   collectionRun,
@@ -14,6 +14,7 @@ import {
 } from "@/lib/server/db/schema";
 
 export async function readPersistedMonitoringRows() {
+  const db = getDatabase();
   const [devices, latestObservations, latestSystemSamples, latestNetworkSamples, services, activeAlerts, latestRuns] =
     await Promise.all([
       db.select().from(monitoredDevice).orderBy(monitoredDevice.stableKey, monitoredDevice.id),

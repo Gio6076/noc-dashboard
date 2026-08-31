@@ -1,7 +1,7 @@
 import "server-only";
 
 import { and, asc, eq, gte, isNull, lte, or } from "drizzle-orm";
-import { db } from "@/lib/server/db/client";
+import { getDatabase } from "@/lib/server/db/client";
 import {
   alertInstance,
   monitoredDevice,
@@ -15,6 +15,7 @@ export async function readMonitoringHistoryRows(
   deviceKey: string,
   window: { from: Date; to: Date },
 ) {
+  const db = getDatabase();
   const [device] = await db.select({
     id: monitoredDevice.id,
     stableKey: monitoredDevice.stableKey,

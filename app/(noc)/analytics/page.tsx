@@ -13,6 +13,7 @@ import { DeviceUtilizationChart } from "@/components/analytics/device-utilizatio
 import { HealthDistributionChart } from "@/components/analytics/health-distribution-chart";
 import { ReliabilityOverview } from "@/components/analytics/reliability-overview";
 import { RealReliabilityAnalytics } from "@/components/analytics/real-reliability-analytics";
+import { MonitoringCapabilityState } from "@/components/monitoring/monitoring-capability-state";
 import { LatencyChart } from "@/components/dashboard/latency-chart";
 import { MetricCard } from "@/components/ui/metric-card";
 import { SectionHeader } from "@/components/ui/section-header";
@@ -31,15 +32,18 @@ import {
   formatUptime,
 } from "@/lib/formatters";
 import { getUtilizationTone } from "@/lib/status";
-import { getPersistedMonitoringState } from "@/lib/server/monitoring/get-persisted-monitoring-state";
+import { getPersistedMonitoringCapability } from "@/lib/server/monitoring/get-persisted-monitoring-state";
 import { getMonitoringReliability } from "@/lib/server/monitoring/get-monitoring-reliability";
+import { readPersistedMonitoringCapability } from "@/lib/server/monitoring/monitoring-capability";
+import type { MonitoringCapabilityResult } from "@/lib/monitoring-capability";
+import type { ReliabilityAnalytics } from "@/types/reliability-analytics";
 
 export const metadata: Metadata = { title: "Analytics" };
 
 export default async function AnalyticsPage() {
   await connection();
-  const persistedMonitoringData = await getPersistedMonitoringState();
-  const realDevices = persistedMonitoringData.devices
+  const persistedMonitoring = await getPersistedMonitoringCapability();
+  const realDevices = persistedMonitoring.status === "available" ? persistedMonitoring.data.devices
     .map(({ device }) => ({
       stableKey: device.stableKey,
       displayName: device.displayName,
@@ -48,10 +52,14 @@ export default async function AnalyticsPage() {
     .toSorted((first, second) =>
       Number(second.operationalState === "monitored") -
       Number(first.operationalState === "monitored"),
-    );
-  const initialReliability = realDevices[0]
-    ? await getMonitoringReliability(realDevices[0].stableKey, 24)
-    : null;
+    ) : [];
+  const initialReliabilityResult: MonitoringCapabilityResult<ReliabilityAnalytics | null> =
+    persistedMonitoring.status === "available"
+      ? realDevices[0]
+        ? await readPersistedMonitoringCapability(() => getMonitoringReliability(realDevices[0].stableKey, 24))
+        : { status: "available", data: null }
+      : { status: persistedMonitoring.status };
+  const initialReliability = initialReliabilityResult.status === "available" ? initialReliabilityResult.data : null;
   const dashboard = calculateDashboardMetrics(
     mockNetworkDevices,
     mockNetworkAlerts,
@@ -91,7 +99,9 @@ export default async function AnalyticsPage() {
         }
       />
 
-      <RealReliabilityAnalytics devices={realDevices} initialData={initialReliability} />
+      {persistedMonitoring.status === "available" ? (
+        initialReliabilityResult.status === "available" ? <RealReliabilityAnalytics devices={realDevices} initialData={initialReliability} /> : <MonitoringCapabilityState status="unavailable" />
+      ) : <MonitoringCapabilityState status={persistedMonitoring.status} />}
 
       <SectionHeader
         title="Demo / Mock Reliability Analytics"

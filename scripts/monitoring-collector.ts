@@ -73,7 +73,8 @@ async function main() {
   let databasePool: { end(): Promise<void> } | undefined;
 
   try {
-    ({ databasePool } = await import("../lib/server/db/client.ts"));
+    const { getDatabasePool } = await import("../lib/server/db/client.ts");
+    databasePool = getDatabasePool();
     const { runPersistedMonitoringCycle } = await import(
       "../lib/server/monitoring/run-persisted-cycle.ts"
     );

@@ -5,13 +5,13 @@ import { LiveRealMonitoring } from "@/components/monitoring/live-real-monitoring
 import { SectionHeader } from "@/components/ui/section-header";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { mockNetworkAlerts, mockNetworkDevices } from "@/data";
-import { getPersistedMonitoringState } from "@/lib/server/monitoring/get-persisted-monitoring-state";
+import { getPersistedMonitoringCapability } from "@/lib/server/monitoring/get-persisted-monitoring-state";
 
 export const metadata: Metadata = { title: "Alerts" };
 
 export default async function AlertsPage() {
   await connection();
-  const persistedMonitoringData = await getPersistedMonitoringState();
+  const persistedMonitoring = await getPersistedMonitoringCapability();
 
   return (
     <div className="space-y-5 xl:space-y-6">
@@ -25,7 +25,7 @@ export default async function AlertsPage() {
           />
         }
       />
-      <LiveRealMonitoring initialData={persistedMonitoringData} showAlerts />
+      <LiveRealMonitoring initialResult={persistedMonitoring} showAlerts />
       <SectionHeader
         title="Demo / Simulated Alerts"
         description="Deterministic demonstration data. Session-level acknowledgement controls below do not apply to real monitoring alerts."
