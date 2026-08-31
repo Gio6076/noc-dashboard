@@ -2,7 +2,7 @@
 
 The dashboard uses Drizzle ORM with `pg` and PostgreSQL. Drizzle keeps the schema explicit in TypeScript, generates reviewable SQL migrations, supports the partial active-alert index directly, and adds little runtime abstraction. Prisma is not used.
 
-This phase is intentionally manual. Nothing schedules collection, page rendering does not invoke persistence, and `GET /api/monitoring/snapshots` continues to fetch live agent data.
+Collection remains intentionally manual. Page rendering does not invoke persistence, and `GET /api/monitoring/snapshots` continues to fetch live agent data.
 
 ## Local setup
 
@@ -27,6 +27,14 @@ Apply migrations and invoke one trusted-registry collection cycle:
 npm run db:migrate
 npm run monitoring:collect
 ```
+
+For continuous manual collection, run:
+
+```bash
+npm run monitoring:collector
+```
+
+The collector runs a cycle immediately, then waits 20 seconds after each cycle finishes before starting the next one. Set `NOC_COLLECTION_INTERVAL_SECONDS` to a positive finite number of at least 5 seconds to override that interval. Run only one authoritative collector process at a time; distributed coordination is intentionally not part of this phase. Press Ctrl+C for graceful shutdown: an active cycle is allowed to finish, while an idle collector stops promptly. Automatic OS startup and deployment integration are intentionally deferred.
 
 Generate a reviewed migration after future schema edits with `npm run db:generate`. Inspect data with `psql "$DATABASE_URL"` or, for local development, `npm run db:studio`.
 
@@ -61,7 +69,7 @@ HTTP(S) normalization allows only HTTP/HTTPS and rejects userinfo, query strings
 
 Repository functions live under `lib/server/repositories/`; ORM calls do not appear in routes or React components. The `pg` pool is cached on `globalThis` during development to avoid hot-reload connection growth.
 
-Concurrent active-alert creation is protected by the partial unique index. An insert conflict updates the winning active occurrence rather than creating another row. Lifecycle transitions and alert updates share the cycle transaction. This foundation assumes one manual collector process; it deliberately does not add a distributed lease. Conflicting concurrent cycles with different evidence require the single-collector/lease design in the next phase.
+Concurrent active-alert creation is protected by the partial unique index. An insert conflict updates the winning active occurrence rather than creating another row. Lifecycle transitions and alert updates share the cycle transaction. This foundation assumes one authoritative collector process; it deliberately does not add a distributed lease. Conflicting concurrent cycles with different evidence require a future coordination design.
 
 ## Recovery evidence
 
@@ -78,4 +86,4 @@ Repeated positive observations update `last_observed_at`, message/current value,
 
 ## Current limitations
 
-Collection is not scheduled and there is no independent collector, locking/lease system, retention, historical UI, acknowledgement, notification, authentication, or incident workflow in this persistence path. The database is not yet the device registry. The current agent lacks an explicit immutable service ID, and its byte-capacity fields may be absent; corresponding memory/disk byte columns remain nullable until supplied.
+Collection has no automatic OS startup or deployment scheduling, and there is no locking/lease system, retention, historical UI, acknowledgement, notification, authentication, or incident workflow in this persistence path. The database is not yet the device registry. The current agent lacks an explicit immutable service ID, and its byte-capacity fields may be absent; corresponding memory/disk byte columns remain nullable until supplied.

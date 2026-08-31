@@ -11,7 +11,8 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:studio": "drizzle-kit studio",
-    "monitoring:collect": "node --conditions=react-server --import tsx scripts/collect-monitoring.ts"
+    "monitoring:collect": "node --conditions=react-server --import tsx scripts/collect-monitoring.ts",
+    "monitoring:collector": "node --conditions=react-server --import tsx scripts/monitoring-collector.ts"
   },
   "dependencies": {
     "drizzle-orm": "^0.45.2",
