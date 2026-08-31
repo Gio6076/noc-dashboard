@@ -41,7 +41,30 @@ The server calculates an inclusive `[from, to]` window using its current time. T
 
 Every configured service definition is returned, even when it has no observations in the window, but target hosts, ports, and URLs are omitted. Network totals and system uptime cross the JSON boundary as exact decimal strings. Alert history uses occurrence overlap rather than start-time-only filtering: an occurrence is included when `first_observed_at <= window.to` and it has not recovered or `recovered_at >= window.from`. Thus both active and recovered outages spanning either boundary are represented without mutating lifecycle state.
 
-This historical layer is read-only and is intended for a future chart UI. It does not yet provide charts, uptime percentages, aggregation, retention, SLA/SLO, or incident calculations.
+This historical layer is read-only. It does not interpolate missing telemetry, and its existing UI behavior remains separate from reliability analytics.
+
+## Reliability analytics
+
+`getMonitoringReliability()` is the server-only Phase 1 calculation/read foundation for one device and the same bounded history window. Its sanitized diagnostic endpoint is `GET /api/monitoring/reliability/[deviceKey]?hours=24`. It returns every persisted service definition without targets, even when that service has no observations. This is monitoring analytics, not a contractual SLA or SLO calculation; Phase 1 adds no reliability UI or chart.
+
+Monitoring coverage and observed availability are intentionally separate. A high observed availability with low coverage means only that the known evidence was mostly healthy; it does not make the unknown part of the window healthy. Missing collection runs, sleeping collectors, failed persistence, and sparse telemetry therefore remain UNKNOWN rather than becoming UP or DOWN. This is why the calculation does not use `UP sample count / total sample count`: samples represent state evidence over time, not equally sized time buckets.
+
+The centralized maximum evidence gap is initially 60 seconds. An observation establishes state at its timestamp and carries it forward over the half-open interval `[observation, min(next observation, observation + 60 seconds))`. Intervals are clipped to the requested `[from, to]` analysis window. The repository also reads observations from the 60 seconds immediately before `from`, allowing recent boundary evidence to carry into the window; older evidence cannot. The final observation never extends beyond either the evidence gap or `to`. An explicit `not-fetched` device observation contributes no evidence and cuts off prior carried state.
+
+Device observation semantics are explicit:
+
+- `online` is available.
+- `partial` is available but degraded and is exposed separately.
+- `unreachable` is unavailable.
+- `not-fetched` is unknown.
+
+The device headline availability is `(available + degraded) / all known device-observed time`. Operational state remains an independent field: maintenance and disabled state neither manufacture uptime nor downtime. Device observation evidence also supplies the top-level monitoring coverage metric. Service availability is `UP / (UP + DOWN)` over known service-observed time. Unknown time is excluded from both availability denominators but included in each coverage denominator and returned explicitly. With no evidence, coverage is 0%, the entire window is unknown, and observed availability is `null`, not a misleading 0%.
+
+Service observations provide coverage and time-weighted UP/DOWN availability. Persistent service-category `alert_instance` rows independently provide outage occurrence analytics. One alert instance is one occurrence regardless of its condition key or number of repeated DOWN observations. Recovered and active instances overlapping the window are counted separately, and active instances never receive a fabricated recovery time.
+
+Recovered downtime inside the requested window is clipped to the overlap of `[firstObservedAt, recoveredAt]` and `[from, to]`. Longest recovered outage and mean time to recovery use each recovered instance's full persisted `firstObservedAt` to `recoveredAt` duration, including an occurrence that started before the window; this preserves actual recovery duration while the separate downtime total remains window-specific. MTTR and longest recovered outage are `null` when no recovered occurrence intersects the window.
+
+Duration arithmetic uses integer milliseconds until DTO serialization to seconds. Percentages are calculated from duration totals and normalized to at most six decimal places, leaving display rounding to future presentation code.
 
 ## Local setup
 
@@ -125,4 +148,4 @@ Repeated positive observations update `last_observed_at`, message/current value,
 
 ## Current limitations
 
-Collection has no automatic OS startup or deployment scheduling, and there is no locking/lease system, retention, historical UI, acknowledgement, notification, authentication, or incident workflow in this persistence path. The database is not yet the device registry. The current agent lacks an explicit immutable service ID, and its byte-capacity fields may be absent; corresponding memory/disk byte columns remain nullable until supplied.
+Collection has no automatic OS startup or deployment scheduling, and there is no locking/lease system, retention, reliability UI/charts, SLA breach logic, acknowledgement, notification, authentication, or incident workflow in this persistence path. The database is not yet the device registry. The current agent lacks an explicit immutable service ID, and its byte-capacity fields may be absent; corresponding memory/disk byte columns remain nullable until supplied.
