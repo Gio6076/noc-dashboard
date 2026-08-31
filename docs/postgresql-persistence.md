@@ -45,7 +45,7 @@ This historical layer is read-only. It does not interpolate missing telemetry, a
 
 ## Reliability analytics
 
-`getMonitoringReliability()` is the server-only Phase 1 calculation/read foundation for one device and the same bounded history window. Its sanitized diagnostic endpoint is `GET /api/monitoring/reliability/[deviceKey]?hours=24`. It returns every persisted service definition without targets, even when that service has no observations. This is monitoring analytics, not a contractual SLA or SLO calculation; Phase 1 adds no reliability UI or chart.
+`getMonitoringReliability()` is the server-only calculation/read foundation for one device and the same bounded history window. Its sanitized diagnostic endpoint is `GET /api/monitoring/reliability/[deviceKey]?hours=24`. It returns every persisted service definition without targets, even when that service has no observations. This is monitoring analytics, not a contractual SLA or SLO calculation. The `/analytics` UI presents the real persisted result separately from demo analytics, pairs observed availability with coverage and unknown time, and supports fixed 1h, 6h, 24h, and 7d windows.
 
 Monitoring coverage and observed availability are intentionally separate. A high observed availability with low coverage means only that the known evidence was mostly healthy; it does not make the unknown part of the window healthy. Missing collection runs, sleeping collectors, failed persistence, and sparse telemetry therefore remain UNKNOWN rather than becoming UP or DOWN. This is why the calculation does not use `UP sample count / total sample count`: samples represent state evidence over time, not equally sized time buckets.
 

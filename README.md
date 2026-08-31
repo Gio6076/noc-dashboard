@@ -12,7 +12,7 @@ The dashboard combines its original deterministic demonstration pages with persi
 - Traffic, latency, packet-loss, capacity, and network-condition analysis
 - Alert console with search, severity/status filters, details, and session acknowledgements
 - Typed incident management records with ownership, duration, root-cause context, and alert correlation
-- Infrastructure analytics covering availability, uptime, utilization, fleet health, and alert distribution
+- Real persisted reliability analytics covering observed availability, monitoring coverage, unknown time, service outage occurrences, and MTTR, kept separate from existing demo analytics
 - Demonstration settings for monitoring thresholds, notification routing, and display density
 - Accessible status labels, semantic tables, keyboard-friendly dialogs, visible focus states, and responsive mobile alternatives
 
@@ -51,6 +51,8 @@ Route pages remain React Server Components. They import deterministic records fr
 The real-monitoring subtrees on Overview, Devices, and Alerts receive their initial sanitized current state from PostgreSQL during server rendering, then poll `GET /api/monitoring/persisted` approximately every 10 seconds. The independent collector writes on its separate default 20-second cadence. Browser requests never trigger collection. If collection stops, the UI retains last-known observations and telemetry while clearly marking collection and sample freshness as stale. If a browser refresh fails, the last successful response remains visible.
 
 `GET /api/monitoring/snapshots` remains available as a direct-agent diagnostic endpoint, but normal dashboard rendering and polling do not depend on it.
+
+The Analytics page server-renders a 24-hour reliability result for the first persisted device, then fetches the reliability API only on device/window changes or manual refresh. Availability is always paired with evidence coverage and unknown time. Service observed DOWN evidence is sample-derived, while recovered outage duration and MTTR come from persistent alert occurrence timestamps; MTTR excludes active outages. These are monitoring analytics, not contractual SLA/SLO calculations.
 
 Domain contracts live in `types/network.ts`. Mock devices, alerts, activity, incidents, and time-series samples are separated into focused modules under `data/`. Dashboard, telemetry, incident, analytics, formatting, and semantic-status calculations live under `lib/`, keeping components independent of the mock source.
 

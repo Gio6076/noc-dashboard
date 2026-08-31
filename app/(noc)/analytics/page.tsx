@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { connection } from "next/server";
 import {
   BellRing,
   Clock3,
@@ -11,6 +12,7 @@ import { AlertDistributionChart } from "@/components/analytics/alert-distributio
 import { DeviceUtilizationChart } from "@/components/analytics/device-utilization-chart";
 import { HealthDistributionChart } from "@/components/analytics/health-distribution-chart";
 import { ReliabilityOverview } from "@/components/analytics/reliability-overview";
+import { RealReliabilityAnalytics } from "@/components/analytics/real-reliability-analytics";
 import { LatencyChart } from "@/components/dashboard/latency-chart";
 import { MetricCard } from "@/components/ui/metric-card";
 import { SectionHeader } from "@/components/ui/section-header";
@@ -29,10 +31,27 @@ import {
   formatUptime,
 } from "@/lib/formatters";
 import { getUtilizationTone } from "@/lib/status";
+import { getPersistedMonitoringState } from "@/lib/server/monitoring/get-persisted-monitoring-state";
+import { getMonitoringReliability } from "@/lib/server/monitoring/get-monitoring-reliability";
 
 export const metadata: Metadata = { title: "Analytics" };
 
-export default function AnalyticsPage() {
+export default async function AnalyticsPage() {
+  await connection();
+  const persistedMonitoringData = await getPersistedMonitoringState();
+  const realDevices = persistedMonitoringData.devices
+    .map(({ device }) => ({
+      stableKey: device.stableKey,
+      displayName: device.displayName,
+      operationalState: device.operationalState,
+    }))
+    .toSorted((first, second) =>
+      Number(second.operationalState === "monitored") -
+      Number(first.operationalState === "monitored"),
+    );
+  const initialReliability = realDevices[0]
+    ? await getMonitoringReliability(realDevices[0].stableKey, 24)
+    : null;
   const dashboard = calculateDashboardMetrics(
     mockNetworkDevices,
     mockNetworkAlerts,
@@ -62,14 +81,22 @@ export default function AnalyticsPage() {
   return (
     <div className="space-y-5 xl:space-y-6">
       <SectionHeader
-        title="Infrastructure analytics"
-        description="Reliability, capacity, alert distribution, and performance patterns from the current monitoring window."
+        title="Reliability Analytics"
+        description="Persisted monitoring evidence and a clearly separate enterprise demonstration dataset."
         action={
           <StatusBadge
             status="informational"
             label={`${latencySeries.length} samples analyzed`}
           />
         }
+      />
+
+      <RealReliabilityAnalytics devices={realDevices} initialData={initialReliability} />
+
+      <SectionHeader
+        title="Demo / Mock Reliability Analytics"
+        description="Existing deterministic enterprise demonstration data. All values below are simulated and exclude real monitored devices."
+        action={<StatusBadge status="informational" label="Demo snapshot" compact />}
       />
 
       <section aria-label="Analytics summary">
