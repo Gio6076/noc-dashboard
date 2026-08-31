@@ -33,6 +33,16 @@ When the collector is stopped, stored availability is not rewritten and no outag
 
 PostgreSQL `bigint` telemetry fields become exact base-10 strings in the read DTO. This keeps the internal function and diagnostic JSON endpoint serializable without narrowing values beyond JavaScript's safe integer range.
 
+## Persisted historical reads
+
+The historical read model is separate from the current-state read model. Current state answers “what is the latest persisted state?”; `getMonitoringHistory()` returns bounded, persisted PostgreSQL time series and alert occurrences for one device selected by its stable key. The read-only diagnostic endpoint is `GET /api/monitoring/history/[deviceKey]?hours=24`.
+
+The server calculates an inclusive `[from, to]` window using its current time. The default is 24 hours, the minimum is 1 hour, and the maximum is 168 hours (7 days). Invalid or non-finite values are rejected. Queries return exact sample timestamps in chronological order with UUID tie-breaking, do not interpolate gaps or fabricate zeroes, and do not downsample yet. The repository is structured by telemetry stream so future aggregation can be introduced without changing the public device-history contract.
+
+Every configured service definition is returned, even when it has no observations in the window, but target hosts, ports, and URLs are omitted. Network totals and system uptime cross the JSON boundary as exact decimal strings. Alert history uses occurrence overlap rather than start-time-only filtering: an occurrence is included when `first_observed_at <= window.to` and it has not recovered or `recovered_at >= window.from`. Thus both active and recovered outages spanning either boundary are represented without mutating lifecycle state.
+
+This historical layer is read-only and is intended for a future chart UI. It does not yet provide charts, uptime percentages, aggregation, retention, SLA/SLO, or incident calculations.
+
 ## Local setup
 
 Install PostgreSQL using the package/service manager appropriate for your operating system, then create a role and database. For example, from a PostgreSQL administrator session:
