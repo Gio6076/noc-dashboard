@@ -2,7 +2,7 @@
 
 A portfolio-quality Network Operations Center dashboard for monitoring a small enterprise or school network. It presents infrastructure health, device inventory, network telemetry, alerts, incidents, and reliability analytics in a responsive dark operations interface.
 
-The dashboard combines its original deterministic demonstration pages with live FastAPI-agent monitoring. A PostgreSQL persistence foundation is available through an explicitly invoked development command; the live dashboard does not read from it yet.
+The dashboard combines its original deterministic demonstration pages with live FastAPI-agent monitoring. PostgreSQL persistence and a server-side persisted current-state read model are available, but the live dashboard UI does not read from PostgreSQL yet.
 
 ## Capabilities
 

@@ -4,6 +4,31 @@ The dashboard uses Drizzle ORM with `pg` and PostgreSQL. Drizzle keeps the schem
 
 Collection remains intentionally manual. Page rendering does not invoke persistence, and `GET /api/monitoring/snapshots` continues to fetch live agent data.
 
+The two monitoring paths are deliberately separate in this phase:
+
+```text
+Agents -> independent Collector -> PostgreSQL
+PostgreSQL -> server-side persisted monitoring read layer
+```
+
+The Overview, Devices, and Alerts UI still uses the existing live agent path. The new read layer is infrastructure for a later UI migration; it does not replace or alter live collection.
+
+## Persisted current-state reads
+
+`getPersistedMonitoringState()` is a server-only data-access function. Its repository uses set-based queries to load registered devices, the latest device observation, the latest successfully persisted system and network samples, every service definition with its latest observation, active alert instances, and the latest completed or partial collection run. Timestamp ties are resolved deterministically by UUID in descending order. A read-only diagnostic endpoint is available at `GET /api/monitoring/persisted`; it is dynamic, sends `Cache-Control: no-store`, omits service targets, and returns a generic 503 rather than database details on failure.
+
+Current availability comes only from the latest device observation. System and network values independently retain their last successfully persisted sample, including its real observation timestamp. Consequently, a later unreachable observation does not erase earlier telemetry or make it appear current.
+
+Freshness is evaluated on the server against a centralized 60-second policy:
+
+- `fresh`: a sample exists and is at most 60 seconds old.
+- `stale`: a sample exists and is more than 60 seconds old.
+- `unavailable`: no sample exists.
+
+The same representation describes collection freshness using the latest completed/partial run time. Operational state (`monitored`, `maintenance`, or `disabled`) remains separate from observed availability. Reads do not evaluate alerts, invent service status, or manufacture state for maintenance/disabled devices. Services without observations have a `null` latest observation, and only PostgreSQL `active` alert instances are returned.
+
+PostgreSQL `bigint` telemetry fields become exact base-10 strings in the read DTO. This keeps the internal function and diagnostic JSON endpoint serializable without narrowing values beyond JavaScript's safe integer range.
+
 ## Local setup
 
 Install PostgreSQL using the package/service manager appropriate for your operating system, then create a role and database. For example, from a PostgreSQL administrator session:
