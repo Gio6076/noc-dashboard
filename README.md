@@ -4,6 +4,8 @@ A portfolio-quality Network Operations Center dashboard for monitoring a small e
 
 The dashboard combines its original deterministic demonstration pages with persisted FastAPI-agent monitoring. Real monitoring follows `Agents → Independent Collector → PostgreSQL → Dashboard`; the demonstration fleet remains separate and deterministic.
 
+The independent collector is designed as a long-running process and emits one-line structured JSON operational logs suitable for `journalctl`. One authoritative collector is assumed. A recoverable local lock guards against ordinary duplicate starts on the same host, but no distributed locking exists; PostgreSQL remains the source of persisted monitoring state. systemd packaging and deployment are intentionally deferred.
+
 ## Capabilities
 
 - Responsive application shell with collapsible desktop navigation and a mobile drawer

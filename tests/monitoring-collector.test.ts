@@ -16,14 +16,16 @@ test("collector completion log reports the persisted run status", () => {
     devicesSucceeded: 1,
     alertsDetected: 0,
   };
-  assert.match(
-    formatCollectorCycleCompletion({ ...result, status: "completed" }, 100),
-    /status=completed/,
+  assert.equal(
+    JSON.parse(formatCollectorCycleCompletion({ ...result, status: "completed" }, 100)).status,
+    "completed",
   );
-  assert.match(
-    formatCollectorCycleCompletion({ ...result, status: "partial" }, 100),
-    /status=partial/,
+  assert.equal(
+    JSON.parse(formatCollectorCycleCompletion({ ...result, status: "partial" }, 100)).status,
+    "partial",
   );
+  const partial = JSON.parse(formatCollectorCycleCompletion({ ...result, status: "partial" }, 100));
+  assert.equal(partial.devicesFailed, 1);
 });
 
 test("collection interval defaults to 20 seconds", () => {
@@ -122,4 +124,27 @@ test("collector delay can be interrupted by shutdown", async () => {
   shutdown.abort();
 
   assert.equal(await waiting, false);
+});
+
+test("cycle callbacks receive accurate timestamps", async () => {
+  const shutdown = new AbortController();
+  const times = [1_000, 1_125];
+  let observed: { startedAt: Date; completedAt: Date; duration: number } | undefined;
+
+  await runCollectorLoop({
+    intervalMilliseconds: 20_000,
+    signal: shutdown.signal,
+    now: () => times.shift()!,
+    runCycle: async () => {
+      shutdown.abort();
+      return "ok";
+    },
+    onCycleComplete: (_result, duration, startedAt, completedAt) => {
+      observed = { startedAt, completedAt, duration };
+    },
+  });
+
+  assert.equal(observed?.startedAt.toISOString(), "1970-01-01T00:00:01.000Z");
+  assert.equal(observed?.completedAt.toISOString(), "1970-01-01T00:00:01.125Z");
+  assert.equal(observed?.duration, 125);
 });

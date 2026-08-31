@@ -13,7 +13,16 @@ export function formatCollectorCycleCompletion(
   result: CollectorCycleCompletion,
   durationMilliseconds: number,
 ): string {
-  return `Monitoring cycle completed: runId=${result.collectionRunId} status=${result.status} durationMs=${durationMilliseconds} devicesAttempted=${result.devicesAttempted} devicesSucceeded=${result.devicesSucceeded} alertsDetected=${result.alertsDetected}`;
+  return JSON.stringify({
+    event: "collection_cycle_completed",
+    runId: result.collectionRunId,
+    status: result.status,
+    durationMs: durationMilliseconds,
+    devicesAttempted: result.devicesAttempted,
+    devicesSucceeded: result.devicesSucceeded,
+    devicesFailed: Math.max(0, result.devicesAttempted - result.devicesSucceeded),
+    alertsDetected: result.alertsDetected,
+  });
 }
 
 export function parseCollectionIntervalSeconds(value: string | undefined): number {
@@ -40,9 +49,9 @@ export interface CollectorLoopOptions<Result> {
   runCycle: () => Promise<Result>;
   wait?: (milliseconds: number, signal: AbortSignal) => Promise<boolean>;
   now?: () => number;
-  onCycleStart?: () => void;
-  onCycleComplete?: (result: Result, durationMilliseconds: number) => void;
-  onCycleFailure?: (error: unknown, durationMilliseconds: number) => void;
+  onCycleStart?: (startedAt: Date) => void;
+  onCycleComplete?: (result: Result, durationMilliseconds: number, startedAt: Date, completedAt: Date) => void;
+  onCycleFailure?: (error: unknown, durationMilliseconds: number, startedAt: Date, completedAt: Date) => void;
 }
 
 export function waitForCollectorDelay(
@@ -76,14 +85,17 @@ export async function runCollectorLoop<Result>({
   onCycleFailure,
 }: CollectorLoopOptions<Result>): Promise<void> {
   while (!signal.aborted) {
-    const startedAt = now();
-    onCycleStart?.();
+    const startedAtMilliseconds = now();
+    const startedAt = new Date(startedAtMilliseconds);
+    onCycleStart?.(startedAt);
 
     try {
       const result = await runCycle();
-      onCycleComplete?.(result, now() - startedAt);
+      const completedAt = new Date(now());
+      onCycleComplete?.(result, completedAt.getTime() - startedAtMilliseconds, startedAt, completedAt);
     } catch (error) {
-      onCycleFailure?.(error, now() - startedAt);
+      const completedAt = new Date(now());
+      onCycleFailure?.(error, completedAt.getTime() - startedAtMilliseconds, startedAt, completedAt);
     }
 
     if (signal.aborted || !(await wait(intervalMilliseconds, signal))) return;
